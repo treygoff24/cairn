@@ -1,0 +1,46 @@
+Verdict: **apply this patch round as a delta, not a full plan rewrite**. I’d accept almost everything, with one substantive disagreement: **do not collapse the Phase 4 Pro consult into Phase 5**. Phase 4 is where graph contracts, provenance, fingerprints, and hard-deny eligibility crystallize; if those are wrong, Phase 5 adapters will bind to bad joints and the whole exoskeleton walks funny. Your patch file explicitly asked for accept/reject adjudication rather than a full revision, so I’d keep this as a clean delta for Claude to apply.
+
+## Patch decisions
+
+| Patch                                                       | Verdict                      | Reasoning / implementation note                              |
+| ----------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------ |
+| **1. Wave-internal contracts preamble**                     | **Accept**                   | This is the most important patch in the set. “Dependencies within wave: none” should mean “none after orchestrator-committed contract stubs,” not “magically independent.” Add a `Wave-internal contracts` block to every wave, with extra emphasis on Phase 4 Wave 4.1. Before fan-out, the orchestrator should commit typed stubs, trait boundaries, module placeholders, and compile-only skeletal crates so parallel workers target the same interface instead of inventing five tiny kingdoms. |
+| **2. Reviewer rotation policy**                             | **Accept with modification** | The critique is right: too much `delegate codex safe` concentrates review judgment and creates a bottleneck. I’d make the 30% cap a **hard aggregate cap after Phase 2**, with a **25% target**, a **40% per-phase emergency cap**, and a rule that the same reviewer model cannot review more than two consecutive tasks in a wave. Keep per-task review briefs, but treat reviewer pairings as constrained suggestions rather than fixed wiring. |
+| **3. Codex CLI adapter implementer should not be Codex**    | **Accept**                   | Yes. The Codex adapter should be implemented by `delegate droid "deepseek v4 pro" work` and reviewed by `delegate cursor safe`. I would optionally add a narrow `delegate codex safe` follow-up as a **capability sanity check only**, with an explicit instruction: “Do not assert undocumented Codex capabilities.” |
+| **4. Split Wave 6.5 and move active broadcasts to Phase 7** | **Accept with modification** | Split 6.5 exactly as proposed. Move active broadcast **runtime behavior** to Phase 7, alongside worktree federation, symbol-level stale checks, and leases. The modification: Phase 6 may still add inert event/schema/metrics placeholders needed by the full P0 scenario bundle, but no active notification loop ships in Phase 6. The spec labels active broadcasts as P2-gated even though Appendix A listed them in Phase 6, so this move is architecturally cleaner. |
+| **5. Replace Phase 2 desloppify with code-simplifier**      | **Accept with modification** | Correct. Phase 2 is too early for the full eight-agent broom parade. Replace `desloppify-deep` with a targeted `code-simplifier` pass over `briefcase-ledger`, `briefcase-storage`, `briefcase-daemon`, `briefcase-protocol`, and any Phase 2 touches in `briefcase-adapter-core`. Keep `desloppify-deep` at Phases 4, 6, and 7. |
+| **6. Phase 2 direct-freshness microbench**                  | **Accept with modification** | Add it. Use p95 ≤ 1 ms on a 10,000-observation fixture as a yellow flag, not a phase blocker. Make it a hard stop only if the benchmark exposes an obvious structural error, like O(n) scans in the hot path, pathological allocations, or p95 > 5 ms on normal hardware. |
+| **7. Rebalance premortems**                                 | **Accept**                   | Add Phase 4 and Phase 6 premortems. Keep Phase 1’s premortem, but shrink it into a tight foundation-risk check focused on identity false matches, daemon split-brain, event-log corruption, and wave-contract readiness. Phase 4 and Phase 6 are dense enough to deserve the tiger lantern before anyone enters the cave. |
+| **8. Collapse Phase 4 + Phase 5 Pro consults**              | **Reject as written**        | Keep the Phase 4 consult, but make it narrower. Phase 4 is the moment to review graph model, provenance, confidence, contract/implementation fingerprints, and hard-deny eligibility **before** adapters and MCP bind to those contracts. Phase 5 should become a delta/integration consult, focused on “did hooks/MCP preserve the Phase 4 architecture?” This also matches the original execution brief, which specifically names Phase 4, Phase 5, and Phase 7 as major re-engagement points. |
+| **9. Skip Phase 1 bug hunt**                                | **Accept with modification** | Remove the separate Phase 1 bug-hunt checkpoint. Keep the adversarial identity/storage stress tests inside the phase gate: concurrent daemon launch, monotonic event IDs, replay determinism, symlink/case/path identity fuzzing, and stale-lease recovery. Only invoke `diagnose` if those tests are red or flaky. |
+| **10. Name the extractor grammar stack**                    | **Accept with modification** | Add the subsection, but don’t make compiler-backed extraction sound purely future-tense. Tree-sitter should be the default syntax/navigation substrate and fallback. Compiler-backed or tool-backed seams should be required for enforcement-grade P0-α facts where feasible: TypeScript compiler/tsserver, `go/packages` or gopls, rust-analyzer/rustdoc JSON, Pyright/mypy where available. If unavailable, confidence demotes and the fact cannot alone drive hard deny. This is aligned with the spec’s confidence/provenance and exported-surface fingerprint requirements. |
+| **11. Commit/worktree integration protocol**                | **Accept with modification** | Add the protocol. The proposed wording is strong. One caveat: allow a **pre-wave contract commit** before fan-out when Patch 1 requires stubs to exist. Normal cadence remains one orchestrator-owned commit per wave after review-loop clean. Worktree diffs should be integrated by per-task patch application, not branch merge. |
+| **12. Pro structural-change triage**                        | **Accept with modification** | Add the sentence, with one nuance: structural feedback pauses **new dispatch and integration of affected work**, while already-running independent workers may finish and report. Nothing touching the structural surface lands until the patch-and-resend round closes. |
+
+## Direct answers to the open questions
+
+**1. Reviewer rotation cap:** Use **25% as the target, 30% as the hard aggregate cap after Phase 2**. Add a 40% per-phase emergency cap so early small phases do not contort themselves into reviewer origami. Also add “no more than two consecutive same-model reviews in a wave,” because local streaks matter almost as much as global percentages.
+
+**2. Phase 4 Pro consult:** Keep it. Narrow it. Phase 4 is not just “graph exists”; it is where the system decides which facts can later justify stale-edit denial. The spec repeatedly treats graph facts as inputs to belief management rather than the primary API surface, and Phase 4 is the moment that distinction can be accidentally erased.
+
+**3. Phase 1 premortem:** Keep it, but make it small. Drop the Phase 1 bug hunt, keep the Phase 1 premortem. The premortem is cheap insurance against foundational mistakes that are expensive to unwind: identity semantics, daemon lease model, event ID ordering, and pre-wave contract setup.
+
+**4. Active broadcasts:** Move runtime behavior to Phase 7. Phase 6 may leave the runway painted: event kinds, metrics slots, working-set data, and disabled config flags. But the actual “push notices to other sessions” behavior belongs with the other coordination extensions.
+
+**5. Anything else missed:** I would add three small patchlets before dispatch:
+
+First, **Wave 1.1 needs a tiny orchestrator-owned contract/bootstrap prelude**. Before fanning out the first six workers, the orchestrator should create the root workspace skeleton, empty crate directories, and minimal compile-only `Cargo.toml` stubs. Otherwise the workspace task is secretly upstream of every other first-wave crate task.
+
+Second, add **event-schema golden fixtures at every phase boundary**. Once a phase passes, freeze a tiny event-log fixture bundle and replay test. The event log is the spinal cord; schema drift here can quietly paralyze replay, benchmarks, and proof traces.
+
+Third, add a **minimal `deny explain` seed before Tier 1 adapter enforcement is accepted**. Full operator CLI can stay in Phase 6, but Phase 5 should not accept real or simulated hard-deny enforcement unless there is at least a skeletal way to inspect a `deny_id`. The spec makes operator visibility P0, and hard denies without receipts will feel haunted even in internal dogfood.
+
+## Net patch to apply
+
+Apply Patches **1, 3, 7, 10** basically as proposed.
+
+Apply Patches **2, 4, 5, 6, 9, 11, 12** with the modifications above.
+
+Reject Patch **8** as written, replacing it with: **keep a narrow Phase 4 Pro review; make Phase 5 a delta/integration review**.
+
+After that, Wave 1.1 is dispatchable, provided the orchestrator first lands the contract/bootstrap prelude.

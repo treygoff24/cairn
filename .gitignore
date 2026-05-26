@@ -1,0 +1,29 @@
+# Rust build outputs
+/target/
+**/*.rs.bk
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Personal scratch — not for tracked content
+docs/dev-notes/
+docs/plans/
+
+# Briefcase runtime artifacts (V1 produced these when running on this repo; V2 will produce its own)
+.briefcase/
+.code-briefcase/
+.code-briefcaseignore
+
+# macOS metadata
+._*
+.Spotlight-V100
+.Trashes
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
