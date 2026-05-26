@@ -1,4 +1,4 @@
-# Code Briefcase V2 — Strategic Context
+# Cairn — Strategic Context
 
 The spec is the *what*. This is the *why*. Read this when you need to remember why a decision was made, when a question feels like it might re-open a settled call, or before you push back on a locked-in choice.
 
@@ -10,15 +10,16 @@ The spec is the *what*. This is the *why*. Read this when you need to remember w
 2. **Eval against the llm-council repo** surfaced a TSX nav-map silent failure on large files plus 7 token-efficiency issues. Items 1–8 fixed via Cursor + Opus subagents, merged to V1 main.
 3. **Competitor evaluation** of [CodeGraph](https://github.com/colbymchenry/codegraph) (TS, MCP-only, 27k stars, indexer-better-than-ours) and [codedb](https://github.com/justrach/codedb) (Zig, atomic edits, sub-ms warm queries). Neither replaces V1 — they lack the push-mode hooks + diagnostics-in-the-loop differentiator. CodeGraph's indexer is better than V1's, but the *moat* is the substrate, not the index.
 4. **Language decision exercise** with GPT-5.5 Pro. Pro recommended Rust with the killer argument: *"hook startup latency is product surface area."* Push-mode hooks fire constantly; TypeScript's 50ms cold start is structurally wrong for the hot path. Conceded with substance.
-5. **Greenfield rewrite decision.** V1 stays as behavior spec plus acceptance test corpus. V2 starts clean. Repo name: `briefcase`. Marketing name remains "Code Briefcase."
+5. **Greenfield rewrite decision.** V1 (Python product called "Code Briefcase") stays as behavior spec plus acceptance test corpus. V2 starts clean as a Rust rewrite. Originally V2 inherited the "Briefcase" name; renamed to **Cairn** mid-planning when the BeeWare Briefcase conflict and the better metaphor-fit became clear. The cairn-as-trail-marker metaphor maps the design pin directly: each agent passes through a project, drops cairns (observations, edits), and the next agent sees what's been marked.
 6. **Multi-agent breakthrough.** During the V2 spec brainstorm, Trey saw that the same primitives that solve single-agent context decoration *also* solve well-known multi-agent problems (stale-context edits, semantic obsolescence mid-flight, redundant CPU thrashing, no cross-agent awareness). The MVP mechanism: at each agent's pre-edit hook, check whether any file in the static dep-graph of the target has been modified by a *different agent session* since this session's last relevant observation; if yes, deny (where harness supports) or advise. This shifted product positioning from "context substrate" to "context substrate + coordination layer."
 7. **GPT Pro candidate spec.** Three-option per macro axis structure. Reviewed, found 12 architectural gaps.
 8. **GPT Pro follow-up review.** Pro returned with all 12 questions answered concretely, plus 5 things we missed in §14 (TOCTOU race, generated/vendor file policy, task identity as first-class, plus prompt-injection and privacy retention which we cut as not applicable for a local-only single-user product). Spec patched to final.
-9. **Implementation plan dispatched** to GPT-5.5 Pro. This repo exists in advance of that response. When it lands, paste to `docs/v2-implementation-plan.md`, update `docs/STATE.md`, and kick off Phase 1.
+9. **Implementation plan delivered and patched.** GPT-5.5 Pro delivered the full plan (`docs/Cairn Implementation Plan.md`). Patch Round 1 dispatched a critical-read delta back; Pro adjudicated (`docs/Cairn Implementation Plan — Patch Round 1 Decisions.md`); all accepted patches plus 3 added patchlets applied. Plan is coherent and ready for Wave 1.1 dispatch.
+10. **Renamed to Cairn.** Before the initial commit landed on remote, the project rebranded from "Code Briefcase / Briefcase" to **Cairn**. Crate prefix `cairn-*`, binary `cairn`, MCP tools `cairn_*`. The history archives in `docs/history/` were written before the rename and still reference Briefcase — intentionally not rewritten.
 
 ## The non-obvious design choice (the framing)
 
-> *"Code Briefcase is not primarily a repository index. It is a versioned belief-management system for AI agents operating on code."*
+> *"Cairn is not primarily a repository index. It is a versioned belief-management system for AI agents operating on code."*
 
 Most reviewers will think this is a better code index. That's incomplete. A code graph tells you what is currently true about the repository. The harder and more valuable question: what does *this particular agent session* currently believe, and has that belief expired?
 
@@ -39,9 +40,9 @@ A graph without an observation ledger is a clever librarian shouting facts into 
 ## Locked-in decisions (do NOT re-litigate)
 
 1. **Greenfield in Rust.** Not a port. Behavior spec from V1, no compatibility shims.
-2. **Repo naming.** `briefcase` (short, what you type). Crates = `briefcase-*`. Binary = `briefcase`. Marketing = "Code Briefcase." V1 repo at `~/Code/code-briefcase`.
+2. **Repo naming.** `cairn` (short, what you type). Crates = `cairn-*`. Binary = `cairn`. Marketing = "Cairn." V1 repo at `~/Code/code-briefcase`.
 3. **Heavy crate decomposition from day one.** Roughly 15+ crates per the spec; exact list will be in the implementation plan. Heavy decomposition is a feature, not a tax — because the build model is a parallel sub-agent swarm and each crate is a unit of work owned by one worker.
-4. **Salsa as incremental engine.** Pinned, wrapped behind `briefcase-incremental` crate so swap blast radius is one crate.
+4. **Salsa as incremental engine.** Pinned, wrapped behind `cairn-incremental` crate so swap blast radius is one crate.
 5. **MCP is an adapter, not the substrate.** Daemon has its own typed binary protocol (MessagePack/CBOR/postcard, length-prefixed, versioned). MCP server proxies into the daemon. Internal IPC: Unix sockets / named pipes.
 6. **Storage: three layers.** SQLite WAL for durable truth; mmap snapshot for cold-start speed; in-memory arenas for sub-ms hot serving.
 7. **One shared daemon per project worktree.** All agent sessions attach. Identified by canonical root + git worktree + config hash + protocol version.
@@ -54,7 +55,7 @@ A graph without an observation ledger is a clever librarian shouting facts into 
 
 ## Open operational questions (not blockers — Trey resolves at his pace)
 
-- **GitHub repo URL.** Likely `github.com/treygoff24/briefcase`. Not created yet.
+- **GitHub repo URL.** Likely `github.com/treygoff24/cairn`. Not created yet.
 - **V1 repo disposition.** Rename to `code-briefcase-py` then archive? Just archive in place?
 - **License.** V1 is AGPL-3.0. V2 keeps AGPL, or shifts (MIT to match the open-MCP ecosystem)?
 
@@ -107,28 +108,13 @@ Match energy. The multi-agent coordination piece is genuinely exciting and the e
 
 ---
 
-## The implementation plan workflow (when Pro responds)
-
-1. Paste Pro's response to `docs/v2-implementation-plan.md` (replace the placeholder).
-2. Update `docs/STATE.md` to reflect the change in state.
-3. Read the plan critically. Check for:
-   - **Ledger-first build order** — Phase 1 should be identity substrate (canonical paths, file versions, repo epochs, monotonic event IDs, session IDs, adapter capability records). Not the graph.
-   - **Parallelism per phase** — every phase should have multiple waves, each wave should have 4–8 parallel tasks. Sequential within a wave is the exception requiring justification.
-   - **Review-loop integration** — every wave ends with an independent reviewer pass by a different model than the implementer. Every review produces a fix list.
-   - **Skill-to-task mapping** — every task names a primary skill, secondary if relevant, and the always-on stack (`clean-code` + `rust-engineer`).
-   - **Opinionated answers** to the 10 forced decisions in the brief: crate count, wave granularity, deslopify cadence, bug hunt cadence, first adapter target, benchmark harness timing, V1 test corpus porting strategy, Codex's share of execution, reviewer-implementer disagreement escalation, when to refuse to advance.
-   - **First-sprint kickoff** — literally ready to dispatch the first wave from a single orchestrator message.
-4. Surface the read to Trey for collaborative review.
-5. Patch the plan if needed (possibly another round with Pro).
-6. Kick off Phase 1, Wave 1.
-
----
-
 ## Where artifacts live
 
-- `docs/Code Briefcase V2 Final Specification.md` — binding spec.
-- `docs/v2-implementation-plan.md` — placeholder until Pro responds.
-- `docs/v2-implementation-plan-prompt.md` — the brief sent to Pro (kept for reference and possible patch-and-resend).
-- `docs/v2-skills-library-attachment.md` — skills library reference (kept for orchestrator and worker brief reference).
-- `docs/STATE.md` — current state of the build.
-- `docs/history/` — decision-rationale archive.
+- `docs/Cairn Final Specification.md` — binding architecture and feature spec. Authored as "Code Briefcase V2 Final Specification" before the rename; content fully renamed to Cairn.
+- `docs/Cairn Implementation Plan.md` — Pro's full 30-wave implementation plan with Patch Round 1 applied.
+- `docs/Cairn Implementation Plan — Patch Round 1.md` — the patch round Claude sent back to Pro after critical-reading the initial plan.
+- `docs/Cairn Implementation Plan — Patch Round 1 Decisions.md` — Pro's adjudication of the patch round.
+- `docs/v2-implementation-plan-prompt.md` — the original brief sent to Pro, kept as the request artifact for that round. Pre-rename content; references Briefcase throughout.
+- `docs/v2-skills-library-attachment.md` — skills library reference sent alongside the brief. Pre-rename content.
+- `docs/STATE.md` — living state of the build.
+- `docs/history/` — decision-rationale archive (Pro language-decision conversation, spec review round 2). Pre-rename content; references Code Briefcase throughout. Intentionally not rewritten — these are historical conversation transcripts.

@@ -8,7 +8,7 @@ A living document of what's happening, what's in flight, and what's next. Update
 
 V2 spec finalized. Implementation plan delivered by GPT-5.5 Pro and patched per Patch Round 1 (all 12 patches + Pro's 3 added patchlets applied). Plan is coherent and ready for Wave 1.1 dispatch. **Repo is now ready for initial commit and remote push.**
 
-Decision pending: remote will be created as `github.com/treygoff24/briefcase` PRIVATE first, flipped to public when Phase 1 ships (working `briefcase daemon doctor --self-test` plus passing advance-refusal gates).
+Decision pending: remote will be created as `github.com/treygoff24/cairn` PRIVATE first, flipped to public when Phase 1 ships (working `cairn daemon doctor --self-test` plus passing advance-refusal gates).
 
 ## What just happened (recent session work)
 
@@ -19,7 +19,7 @@ Decision pending: remote will be created as `github.com/treygoff24/briefcase` PR
 
 ## What's next (the immediate path)
 
-1. **Initial commit + push to private GitHub remote.** Single commit covering all documentation. Remote = `github.com/treygoff24/briefcase` (private).
+1. **Initial commit + push to private GitHub remote.** Single commit covering all documentation. Remote = `github.com/treygoff24/cairn` (private).
 2. **Wave 1.0** — orchestrator runs the Phase 1 foundation-risk premortem.
 3. **Wave 1.1 bootstrap prelude** — orchestrator commits workspace skeleton (Cargo.toml + empty crate dirs + compile-only lib.rs/main.rs stubs) in a single pre-fan-out commit so all six Wave 1.1 workers can compile against a stable workspace.
 4. **Wave 1.1 dispatch** — six workers in one batch per the plan's §5.
@@ -31,7 +31,7 @@ Nothing active. Ready for initial commit and remote push.
 
 ## Decisions waiting on Trey (non-blocking)
 
-- GitHub repo URL — likely `github.com/treygoff24/briefcase`, not created yet
+- GitHub repo URL — likely `github.com/treygoff24/cairn`, not created yet
 - V1 disposition — rename to `code-briefcase-py` then archive, or archive in place
 - License — AGPL-3.0 (V1 default) vs MIT vs other
 

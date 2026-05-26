@@ -13,8 +13,10 @@
 docs/dev-notes/
 docs/plans/
 
-# Briefcase runtime artifacts (V1 produced these when running on this repo; V2 will produce its own)
-.briefcase/
+# Cairn runtime artifacts (V2 daemon will write here once Phase 1 ships)
+.cairn/
+
+# Code Briefcase V1 (Python) runtime artifacts — V1 still operates on this repo for dogfooding
 .code-briefcase/
 .code-briefcaseignore
 

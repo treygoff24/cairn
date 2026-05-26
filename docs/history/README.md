@@ -1,5 +1,7 @@
 # History — Decision Rationale Archive
 
+> **Archive note:** these files were written before the project was renamed from "Code Briefcase" to **Cairn**. References to Briefcase / Code Briefcase throughout reflect the project at the time. Content intentionally not rewritten — these are conversation transcripts and decision artifacts, not active documentation.
+
 These files are not active spec, plan, or state. They're the *why* behind locked-in decisions. Read on demand when a question arises about why something is the way it is.
 
 ## Files
@@ -16,10 +18,10 @@ These files are not active spec, plan, or state. They're the *why* behind locked
 
 ## Where the active artifacts live
 
-- The current binding spec is `../Code Briefcase V2 Final Specification.md`.
+- The current binding spec is `../Cairn Final Specification.md`.
 - Live state is `../STATE.md`.
 - Strategic context (decisions in plain English) is `../../CONTEXT.md`.
-- The implementation plan (when it arrives from Pro) is `../v2-implementation-plan.md`.
+- The implementation plan (delivered by Pro, patched per Round 1) is `../Cairn Implementation Plan.md`.
 
 ## What's missing here (intentionally)
 

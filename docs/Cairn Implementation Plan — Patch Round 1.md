@@ -1,4 +1,4 @@
-# Code Briefcase V2 Implementation Plan — Patch Round 1
+# Cairn Implementation Plan — Patch Round 1
 
 ## Purpose
 
@@ -25,7 +25,7 @@ Where you disagree with a patch, push back with substance. We will accept a well
 **Problem:** every task in every wave declares `Dependencies within wave: none`. That is structurally untrue in places. Examples:
 
 - Wave 1.2: the daemon (Task 4) cannot persist events without the storage crate (Task 1) compiling.
-- Wave 4.1: `briefcase-graph` (Task 2) cannot compile without Salsa query handles from `briefcase-incremental` (Task 1).
+- Wave 4.1: `cairn-graph` (Task 2) cannot compile without Salsa query handles from `cairn-incremental` (Task 1).
 - Wave 6.1: diagnostic adapters (Tasks 2–3) cannot compile without the worker registry types (Task 1).
 
 In practice these waves work because tasks consume *types/traits* not *implementations*, and the types crate publishes contracts before fan-out. But the plan never says that. Workers will collide on missing trait stubs, or one worker will block waiting on another's "real" implementation.
@@ -156,7 +156,7 @@ If you believe the Phase 4 boundary (just before hooks land) deserves an indepen
 **Fix:** add a §3 subsection titled "Extractor stack" that names:
 
 - Tree-sitter as the default parser substrate for all P0-α and P0-β languages.
-- Compiler-backed seams documented in `briefcase-extract-core` as adapter slots for future plug-ins: rust-analyzer for Rust, tsc/ts-server for TypeScript, gopls for Go, mypy/Pyright for Python, etc.
+- Compiler-backed seams documented in `cairn-extract-core` as adapter slots for future plug-ins: rust-analyzer for Rust, tsc/ts-server for TypeScript, gopls for Go, mypy/Pyright for Python, etc.
 - Grammar version pinning policy (extractor version includes grammar version).
 - Confidence-tier policy: tree-sitter facts default to medium confidence, compiler-backed facts default to high confidence, heuristic-only facts default to low confidence. Per-fact overrides allowed with provenance.
 

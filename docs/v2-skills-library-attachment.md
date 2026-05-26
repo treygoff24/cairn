@@ -1,5 +1,7 @@
 # Skill Library Reference — Code Briefcase V2 Implementation Plan
 
+> **Archive note (post-rename):** this attachment was sent to Pro alongside the implementation plan brief before the project was renamed to **Cairn**. Content preserved verbatim. References to "Code Briefcase / Briefcase" here map to what is now called Cairn.
+
 This is the full library of named skills available to the agents that will execute the V2 implementation plan. 152 skills total. Reference these by exact name in the plan when assigning skill stacks to tasks.
 
 Skills marked `[global]` are auto-loaded for every agent. The rest are discoverable and loadable per task (the orchestrator activates them at dispatch time, or the worker loads them when a task brief names them).

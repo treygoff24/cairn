@@ -1,6 +1,6 @@
-# Code Briefcase V2 — Final Specification
+# Cairn — Final Specification
 
-This is the V1 architecture and feature specification for Code Briefcase V2: a local-first coordination and context substrate for AI coding agents working inside real software repositories. It supersedes the candidate spec at `Code Briefcase V2 Candidate Specification.md`, which is retained for history. Open questions from the candidate round have been resolved through a follow-up review.
+This is the V1 architecture and feature specification for Cairn: a local-first coordination and context substrate for AI coding agents working inside real software repositories. It supersedes the candidate spec at `Cairn Candidate Specification.md`, which is retained for history. Open questions from the candidate round have been resolved through a follow-up review.
 
 Audience: implementers, the sub-agent swarm building V1, and the operator (Trey) running the system.
 
@@ -8,7 +8,7 @@ Audience: implementers, the sub-agent swarm building V1, and the operator (Trey)
 
 ## 1. Product summary
 
-Code Briefcase V2 is a local-first coordination and context substrate for AI coding agents working inside real software repositories. Its user is the agent, not the human developer. The operator benefits indirectly: the agent spends fewer tokens discovering the codebase, makes fewer stale or structurally wrong edits, completes verified software tasks with less babysitting, and can run multiple sessions in the same working tree without overwriting one another.
+Cairn is a local-first coordination and context substrate for AI coding agents working inside real software repositories. Its user is the agent, not the human developer. The operator benefits indirectly: the agent spends fewer tokens discovering the codebase, makes fewer stale or structurally wrong edits, completes verified software tasks with less babysitting, and can run multiple sessions in the same working tree without overwriting one another.
 
 The product is **not** primarily a repository index. It is a **versioned belief-management system for AI agents operating on code.** A code graph tells you what is currently true about the repository. The harder and more valuable question is: *what does this particular agent session currently believe, and has that belief expired?*
 
@@ -144,7 +144,7 @@ The central design bet is that AI coding agents need a **pushed, versioned, prov
 
 ### Axis 1: Integration delivery model
 
-**Conservative — pull-mode MCP server only.** Tools like `briefcase_find`, `briefcase_explain`, `briefcase_impact`, `briefcase_diagnostics`. Agents benefit only when they choose to call them. Simple, compatible with many harnesses, avoids context spam. Fails during blind sub-agent exploration, where raw `Read` / `Grep` / `Bash` still dominate.
+**Conservative — pull-mode MCP server only.** Tools like `cairn_find`, `cairn_explain`, `cairn_impact`, `cairn_diagnostics`. Agents benefit only when they choose to call them. Simple, compatible with many harnesses, avoids context spam. Fails during blind sub-agent exploration, where raw `Read` / `Grep` / `Bash` still dominate.
 
 **Baseline — hybrid push plus pull.** Hooks push small, high-confidence, context-budgeted decorations at the moments where agents already act: `SessionStart`, `Read`, `Edit`, `PreEdit`, `PostEdit`, `Bash`, `PreCompact`. MCP remains available for explicit deep queries. Push is used for hot-path facts: file structure, route maps, changed diagnostics, stale-context warnings, known-symbol replacements for over-grep. Pull is used for expanded explanations and larger graph traversals.
 
@@ -295,7 +295,7 @@ The two-fingerprint distinction is critical: see §5.
 
 **Wild — reactive causal graph with replay.** Every file change, hook call, graph extraction, diagnostic result, and context emission becomes an event in a local causality graph. Enables session replay, policy simulation, alternative scheduling against historical traces.
 
-**Recommended: baseline content-addressed query DAG, backed by an append-only event log sufficient for replaying coordination and context decisions.** Salsa is the recommended incremental engine, wrapped behind a `briefcase-incremental` crate so the blast radius of swapping it later is one crate.
+**Recommended: baseline content-addressed query DAG, backed by an append-only event log sufficient for replaying coordination and context decisions.** Salsa is the recommended incremental engine, wrapped behind a `cairn-incremental` crate so the blast radius of swapping it later is one crate.
 
 ### Axis 6: Language and framework extraction architecture
 
@@ -541,7 +541,7 @@ Confidence tiers:
 
 **Wild — challengeable facts.** Agent can ask the system to "prove" any fact. Substrate returns extraction path, source spans, versions, confidence rationale.
 
-**Recommended: structured provenance on every fact, with challenge traces exposed via MCP (`briefcase_prove`) — not operator-only.** Keeping challenge traces operator-only makes the agent unable to recover in-band, which is self-defeating.
+**Recommended: structured provenance on every fact, with challenge traces exposed via MCP (`cairn_prove`) — not operator-only.** Keeping challenge traces operator-only makes the agent unable to recover in-band, which is self-defeating.
 
 ### Axis 11: Distribution, availability, and fail-open behavior
 
@@ -731,11 +731,11 @@ file_implementation_hash  = merkle_hash(symbol_implementation_hashes)
 
 Tool descriptions optimized for **agent selection accuracy** (especially smaller models and subagents). Operator readability is secondary. Descriptions are short, imperative, and include "use this when…" language.
 
-#### `briefcase_orient`
+#### `cairn_orient`
 
 Use when starting a session, resuming after compaction, or beginning a new task. Returns task-aware project orientation, current repo state, recent deltas, active diagnostics, suggested next reads.
 
-#### `briefcase_find`
+#### `cairn_find`
 
 Use when locating a symbol, file, route, test, config, command, or framework object.
 
@@ -749,7 +749,7 @@ inputs:
 
 Replaces a family of `find_symbol`, `find_route`, `find_tests` tools.
 
-#### `briefcase_explain`
+#### `cairn_explain`
 
 Use when the agent needs to understand how something works.
 
@@ -767,13 +767,13 @@ inputs:
 
 The "how does X work?" tool.
 
-#### `briefcase_impact`
+#### `cairn_impact`
 
 Use before editing, or after another agent changes something. Returns impact radius, dependency changes, affected symbols, affected sessions, stale observations.
 
 Crucial because it exposes the coordination substrate intentionally.
 
-#### `briefcase_diagnostics`
+#### `cairn_diagnostics`
 
 Use for diagnostic deltas, full diagnostic context, or "what did my edit break?"
 
@@ -784,11 +784,11 @@ inputs:
   mode: introduced | resolved | changed | full
 ```
 
-#### `briefcase_observed_state`
+#### `cairn_observed_state`
 
 Use when the agent asks "what have I seen?" or "what changed since I last saw X?". Exposes bounded ledger state. If the product is belief management, the agent needs a mirror.
 
-#### `briefcase_prove`
+#### `cairn_prove`
 
 Use to challenge or inspect a fact, context frame, stale deny, diagnostic attribution, or graph edge.
 
@@ -962,8 +962,8 @@ Once the agent observes the dependency's current version, the same cause cannot 
 The agent can call:
 
 ```
-briefcase_prove(deny_id)
-briefcase_impact(target_file, since_observation)
+cairn_prove(deny_id)
+cairn_impact(target_file, since_observation)
 ```
 
 This can trigger a fast reindex of the disputed dependency if the graph is stale or low-confidence.
@@ -1014,26 +1014,26 @@ If the operator cannot answer "why did the system say that?" in under thirty sec
 Minimum command set:
 
 ```
-briefcase status
-briefcase daemon doctor
-briefcase sessions list
-briefcase sessions show <session_id>
-briefcase ledger tail --session <session_id>
-briefcase observations show <session_id>
-briefcase context show <context_frame_id>
-briefcase deny explain <deny_id>
-briefcase graph explain <path-or-symbol>
-briefcase diagnostics delta --since <event_id>
-briefcase metrics report
-briefcase metrics tail
-briefcase replay decision <event_id>
+cairn status
+cairn daemon doctor
+cairn sessions list
+cairn sessions show <session_id>
+cairn ledger tail --session <session_id>
+cairn observations show <session_id>
+cairn context show <context_frame_id>
+cairn deny explain <deny_id>
+cairn graph explain <path-or-symbol>
+cairn diagnostics delta --since <event_id>
+cairn metrics report
+cairn metrics tail
+cairn replay decision <event_id>
 ```
 
 The two most important commands:
 
 ```
-briefcase deny explain <deny_id>
-briefcase context show <context_frame_id>
+cairn deny explain <deny_id>
+cairn context show <context_frame_id>
 ```
 
 ### P1: Local read-only web UI
@@ -1202,7 +1202,7 @@ When an agent runs broad `rg` / `grep` / similar searches for an indexed symbol,
 
 ### P0: Operator CLI
 
-The full command set from §9. Most critical: `briefcase deny explain`, `briefcase context show`, `briefcase status`, `briefcase daemon doctor`, `briefcase ledger tail`.
+The full command set from §9. Most critical: `cairn deny explain`, `cairn context show`, `cairn status`, `cairn daemon doctor`, `cairn ledger tail`.
 
 **Metrics:**
 
@@ -1215,7 +1215,7 @@ The full command set from §9. Most critical: `briefcase deny explain`, `briefca
 
 ### P0: PreCompact checkpoint primitive (skeleton)
 
-Record `PreCompactCheckpoint` events. Expose resume state through MCP (`briefcase_orient` after compaction). Full survival packets are P1; the skeleton ships P0 so the event log records the boundary correctly.
+Record `PreCompactCheckpoint` events. Expose resume state through MCP (`cairn_orient` after compaction). Full survival packets are P1; the skeleton ships P0 so the event log records the boundary correctly.
 
 ```
 CompactionCheckpoint {
@@ -1240,7 +1240,7 @@ CompactionCheckpoint {
 
 ### P1: MCP deep context tools (full surface)
 
-The seven tools from §6. P0 ships only `briefcase_orient`, `briefcase_observed_state`, and `briefcase_prove` as a minimal MCP surface. P1 fills in `briefcase_find`, `briefcase_explain`, `briefcase_impact`, `briefcase_diagnostics`.
+The seven tools from §6. P0 ships only `cairn_orient`, `cairn_observed_state`, and `cairn_prove` as a minimal MCP surface. P1 fills in `cairn_find`, `cairn_explain`, `cairn_impact`, `cairn_diagnostics`.
 
 **Metrics:**
 
@@ -1287,7 +1287,7 @@ PreCompactSurvivalPacket {
 }
 ```
 
-Pointer-heavy, not content-heavy. The packet's job: "Keep these four facts and these six frame IDs. After compaction, call `briefcase_observed_state` if you need the full ledger slice."
+Pointer-heavy, not content-heavy. The packet's job: "Keep these four facts and these six frame IDs. After compaction, call `cairn_observed_state` if you need the full ledger slice."
 
 **Metrics:**
 
@@ -1445,7 +1445,7 @@ Precomputed graphs for public packages and framework libraries to accelerate col
 
 ## 11. Non-goals
 
-Code Briefcase V2 is not a human IDE. Human-facing UI can exist (the P1 web UI is read-only flight-recorder), but the primary interface is the agent's tool-call stream.
+Cairn is not a human IDE. Human-facing UI can exist (the P1 web UI is read-only flight-recorder), but the primary interface is the agent's tool-call stream.
 
 It is not a cloud code-indexing SaaS. Core product is local-first. Cloud or shared public graph features are opt-in extensions.
 
@@ -1619,7 +1619,7 @@ Mitigation: held-out repos, rotated tasks, adversarial scenarios, multi-agent va
 
 ### 8. Salsa lock-in
 
-Pin Salsa version, wrap behind `briefcase-incremental` crate. If Salsa proves wrong, blast radius is one crate.
+Pin Salsa version, wrap behind `cairn-incremental` crate. If Salsa proves wrong, blast radius is one crate.
 
 ### 9. TOCTOU coverage depends on adapter precondition support
 
@@ -1711,7 +1711,7 @@ Acceptance: pre-edit dep-graph staleness check works against contract fingerprin
 - Adapter for Claude Code (Tier 1)
 - Adapter for Codex CLI (Tier 1 if deny supported, Tier 2 otherwise)
 - Adapter for Cursor (Tier 2 expected)
-- MCP server with three tools at first: `briefcase_orient`, `briefcase_observed_state`, `briefcase_prove`
+- MCP server with three tools at first: `cairn_orient`, `cairn_observed_state`, `cairn_prove`
 - Harness simulator for testing
 
 Acceptance: end-to-end multi-agent scenario passes with at least two adapters. Coordination metrics measurable.
@@ -1720,7 +1720,7 @@ Acceptance: end-to-end multi-agent scenario passes with at least two adapters. C
 
 - Diagnostics workers and delta attribution
 - Framework extractors (Tier 1 frameworks)
-- `briefcase_find`, `briefcase_explain`, `briefcase_impact`, `briefcase_diagnostics`
+- `cairn_find`, `cairn_explain`, `cairn_impact`, `cairn_diagnostics`
 - Operator CLI (full command set)
 - Active broadcasts (P2 — gated on Phase 5 stability)
 - PreCompact survival packet (full quality)

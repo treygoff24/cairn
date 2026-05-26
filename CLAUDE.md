@@ -1,16 +1,16 @@
-# Code Briefcase V2 — Claude Code Project Instructions
+# Cairn — Claude Code Project Instructions
 
 This file overrides and extends the global `CLAUDE.md` for work inside this repository.
 
 ## What this repo is
 
-Code Briefcase V2 is a greenfield Rust rewrite of Code Briefcase. The V1 (Python) lives at `~/Code/code-briefcase` and is retained as behavior spec plus acceptance test corpus (878 tests). This repo is the V2 build.
+Cairn is a greenfield Rust rewrite of Code Briefcase (V1, Python). The V1 product was named "Code Briefcase" and lives at `~/Code/code-briefcase`; it is retained as behavior spec plus acceptance test corpus (878 tests). The V2 rewrite was renamed to **Cairn** mid-planning — same product trajectory, cleaner name. This repo is the V2/Cairn build.
 
 Until the implementation plan lands from GPT-5.5 Pro, this repo is documentation-only. No Rust code yet. The cargo workspace, crate layout, and first wave of implementation tasks will all be defined by the implementation plan.
 
 ## The design pin
 
-> *"Code Briefcase is not primarily a repository index. It is a versioned belief-management system for AI agents operating on code."*
+> *"Cairn is not primarily a repository index. It is a versioned belief-management system for AI agents operating on code."*
 
 A code graph tells you what's currently true about the repo. The harder, more valuable question: what does *this particular agent session* currently believe, and has that belief expired?
 
@@ -22,9 +22,10 @@ The spec's §14 ("The one non-obvious design choice") restates this in full when
 
 1. **`CONTEXT.md`** — strategic context, decisions locked in, working-relationship cues, things-not-to-relitigate.
 2. **`docs/STATE.md`** — current phase, what's in flight, what's pending. The living state of the build.
-3. **`docs/Code Briefcase V2 Final Specification.md`** — binding architecture and feature spec. Two appendices: A (build-order phasing) and B (schema reference) are load-bearing.
-4. **`docs/v2-implementation-plan.md`** — Pro's implementation plan (existence depends on STATE.md — placeholder until Pro responds).
-5. **`docs/history/`** — decision-rationale archive. Read on demand when a question arises about why we picked something.
+3. **`docs/Cairn Final Specification.md`** — binding architecture and feature spec. Two appendices: A (build-order phasing) and B (schema reference) are load-bearing.
+4. **`docs/Cairn Implementation Plan.md`** — Pro's full 30-wave implementation plan, with Patch Round 1 applied.
+5. **`docs/Cairn Implementation Plan — Patch Round 1.md`** and **`docs/Cairn Implementation Plan — Patch Round 1 Decisions.md`** — the patch round and Pro's adjudication, kept as decision log.
+6. **`docs/history/`** — decision-rationale archive (Pro language-decision conversation, spec review round 2). Written before the rename — references "Code Briefcase" / "Briefcase" throughout.
 
 ## How we build
 
@@ -93,7 +94,7 @@ State this discipline explicitly in every worker brief. Workers should report "I
 - Never `git add -A` or `git add .` — stage files by exact name.
 - Never force-push, never `--no-verify`, never `--amend` to "fix" a failed pre-commit hook (the commit didn't happen; create a new one).
 - The orchestrator owns commits and stashes during a wave. Workers do not commit unless explicitly authorized in their brief.
-- No remote yet. Repo will get pushed to `github.com/treygoff24/briefcase` (TBC) once Trey sets it up.
+- No remote yet. Repo will get pushed to `github.com/treygoff24/cairn` (TBC) once Trey sets it up.
 
 ## V1 reference
 
@@ -103,14 +104,11 @@ The V1 Python repo at `~/Code/code-briefcase` is the behavior spec.
 - The V1 tests are the **acceptance test corpus** for V2. They represent behavior V2 must match in spirit, not implementation. Port to Rust integration tests per the implementation plan's V1-corpus-inheritance strategy.
 - **Do not modify V1 from this repo.** Different project, different working tree.
 
-## When Pro's implementation plan arrives
+## Current phase
 
-1. Paste the response to `docs/v2-implementation-plan.md` (replace the placeholder).
-2. Update `docs/STATE.md`.
-3. Read the plan critically — check for: ledger-first build order, parallelism per phase, review-loop integration in every wave, skill-to-task mapping, opinionated answers to the 10 forced decisions from the brief, first-sprint kickoff that's literally ready to dispatch.
-4. Surface the read to Trey for collaborative review.
-5. Patch the plan if needed (possibly another round with Pro).
-6. Kick off Phase 1, Wave 1.
+The implementation plan has landed and Patch Round 1 is applied. The plan lives at `docs/Cairn Implementation Plan.md`. The next step is Wave 1.0 (Phase 1 foundation-risk premortem, orchestrator-owned, no worker fan-out), then the Wave 1.1 bootstrap prelude commit (workspace skeleton + empty crate dirs + compile-only stubs), then the six-worker Wave 1.1 dispatch per the plan's §5.
+
+When resuming work in a new session, read STATE.md first to find the current wave, then jump to the matching wave header in the implementation plan.
 
 ## Out of scope for V1 (do NOT add)
 

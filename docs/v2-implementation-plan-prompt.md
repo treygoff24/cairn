@@ -1,5 +1,7 @@
 # Code Briefcase V2 — Implementation Plan Brief for GPT-5.5 Pro
 
+> **Archive note (post-rename):** this is the brief that was sent to Pro before the project was renamed to **Cairn**. Content is preserved verbatim as a historical artifact of what Pro received. All references to "Code Briefcase / Briefcase" in this file map to what is now called Cairn. The current binding plan is `Cairn Implementation Plan.md`.
+
 You are receiving two attachments alongside this brief:
 
 1. **`Code Briefcase V2 Final Specification.md`** — the architecture and feature spec for Code Briefcase V2. Treat this as binding ground truth. You produced the first-pass and second-pass versions of it; the attached file is the resolved final.
