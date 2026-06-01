@@ -31,11 +31,11 @@ Remote exists: `github.com/treygoff24/cairn.git`. Commits are local (not pushed)
 
 ## What's next (the immediate path)
 
-Wave 0 (tracer bullet) is done and green — the push-mode thesis is validated end-to-end. Regroup decision now: **greenlight the Phase 1 build, and at what scope?**
+Wave 0 (tracer bullet) is done and green, and **Patch Round 2 is applied** (`docs/Cairn Implementation Plan — Patch Round 2.md`): Cairn reframed as a **superset of vexp** (match the substrate because the moat's precision rides on it, then add the push-mode/enforcement/coordination moat — do NOT thin the substrate), V1 narrowed to a **TS + Python vertical slice**, peripheral crates (web, p0beta, bridges, most frameworks, federation/leases/broadcasts, metrics gym) deferred out of the V1 critical path, and a **cry-wolf precision gate** (self-edit false-positive < 0.5%, §3) pulled forward as an early hard milestone reusing the tracer rig.
 
-1. **Phase 1 / Wave 1.1 six-worker fan-out** per the plan's §5 (Tasks 1–6: workspace scaffolding, `cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`). Optionally gate on a `plan-reviewer` pass over the bootstrap contract first.
-2. **Scope question raised by the vexp finding** — decide whether to trim the 26-crate / 14-language plan toward the differentiated push-mode + ledger core before committing the full substrate build (red-team recommended starting ~6–10 crates, 2 languages, and proving the ledger precision that the cry-wolf finding shows is make-or-break). Open.
-3. **Phase 1 acceptance** (Wave 1.3): `cairn daemon doctor --self-test`, concurrent-launch single-daemon check, identity determinism fixtures.
+**Immediate next step: greenlight the Phase 1 / Wave 1.1 six-worker fan-out** per the plan's §5 (Tasks 1–6: workspace scaffolding, `cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`). Phase 1 (identity substrate) is invariant to Patch Round 2 — safe to build as specced. Optionally gate on a `plan-reviewer` pass over the bootstrap contract first.
+
+Then: Phase 2 ledgers + direct freshness → thin real Claude hook adapter (brought forward) → **cry-wolf precision gate** → minimal TS+Python graph → dependency staleness → initial MCP tools. That's the vertical slice.
 
 Open process questions: license (AGPL vs MIT — unset in `Cargo.toml`), branch/PR workflow vs direct-to-main, plan-reviewer pass before fan-out, whether to push commits to the remote.
 
