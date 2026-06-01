@@ -8,3 +8,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+cairn-types = { workspace = true }
+
+[lints]
+workspace = true

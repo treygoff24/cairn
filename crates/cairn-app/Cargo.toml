@@ -12,3 +12,6 @@ name = "cairn"
 path = "src/main.rs"
 
 [dependencies]
+
+[lints]
+workspace = true

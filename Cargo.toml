@@ -16,6 +16,32 @@ rust-version = "1.95"
 repository = "https://github.com/treygoff24/cairn"
 authors = ["Trey Goff"]
 
-# Shared dependencies are pinned once here and inherited by member crates as the
-# build grows. Empty at bootstrap — Wave 1.1 Task 2 (cairn-types) adds the first.
+# Shared dependencies are pinned ONCE here and inherited by member crates via
+# `<crate> = { workspace = true }`. Wave 1.1 workers MUST inherit from this table
+# and MUST NOT add new entries to it themselves (six concurrent edits to one TOML
+# table conflict, and the content-hash crate is a load-bearing identity choice, not
+# a per-worker default). New shared deps are added here by the orchestrator only.
 [workspace.dependencies]
+# Internal crates.
+cairn-types = { path = "crates/cairn-types" }
+# Serialization — the daemon's event log, protocol envelopes, and config are serde.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Content addressing. BLAKE3 is THE content-hash algorithm for FileVersion and the
+# working-tree digest — fast on the read/edit hot path. Do not substitute per crate.
+blake3 = "1"
+# Config parsing.
+toml = "0.8"
+# Errors: thiserror for typed library errors, anyhow for the binary's top level.
+thiserror = "2"
+anyhow = "1"
+
+# Lint posture is decided once and inherited by every crate via `[lints] workspace =
+# true`, so a worker's lighter local clippy run can't drift from the orchestrator's
+# full `--all-targets` gate. `unsafe_code = "deny"` holds for Phase 1; the crate that
+# legitimately needs it later (mmap snapshots) opts in explicitly.
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
