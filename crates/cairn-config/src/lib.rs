@@ -526,4 +526,26 @@ y = 2
         let result = load_path("/tmp/cairn-nonexistent-test-file.toml");
         assert!(result.is_err());
     }
+
+    #[test]
+    fn known_keys_cover_all_config_fields() {
+        // Guard against `KNOWN_TOP_LEVEL_KEYS` drifting from the struct: a new field
+        // not in the allowlist would be silently stripped on load (data loss).
+        let cfg = CairnConfig {
+            protocol_version: 1,
+            mode: CairnMode::Default,
+            project_name: Some("x".into()),
+            features: FeatureFlags::default(),
+            ablation: AblationFlags::default(),
+        };
+        let toml::Value::Table(table) = toml::Value::try_from(&cfg).unwrap() else {
+            panic!("CairnConfig must serialize to a table");
+        };
+        for key in table.keys() {
+            assert!(
+                KNOWN_TOP_LEVEL_KEYS.contains(&key.as_str()),
+                "config field `{key}` is missing from KNOWN_TOP_LEVEL_KEYS"
+            );
+        }
+    }
 }

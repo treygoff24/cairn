@@ -236,7 +236,10 @@ fn read_git_metadata_file(path: &Path) -> Result<String, IdentityError> {
 }
 
 fn metadata_path_from_file(file: &Path, raw_path: &str) -> Result<PathBuf, IdentityError> {
-    let trimmed_path = raw_path.trim();
+    // Use only the first line: a `.git` gitfile or `commondir` file holds the path on
+    // its first line, and trailing lines or junk must not bleed into the resolved
+    // path (an embedded newline would otherwise become part of the path).
+    let trimmed_path = raw_path.lines().next().unwrap_or("").trim();
     if trimmed_path.is_empty() {
         return Err(IdentityError::EmptyGitMetadataPath {
             path: file.to_path_buf(),
@@ -797,5 +800,15 @@ mod tests {
             error.kind(),
             io::ErrorKind::PermissionDenied | io::ErrorKind::Unsupported
         )
+    }
+
+    #[test]
+    fn gitdir_pointer_uses_first_line_only() {
+        // A `.git` / commondir file polluted with trailing lines must not bleed junk
+        // into the resolved path — only the first line is honored.
+        let resolved =
+            metadata_path_from_file(Path::new("/repo/.git"), "subdir/git\nGARBAGE\nmore").unwrap();
+        assert!(resolved.ends_with("subdir/git"), "got {resolved:?}");
+        assert!(!resolved.to_string_lossy().contains("GARBAGE"));
     }
 }

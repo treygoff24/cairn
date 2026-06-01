@@ -28,7 +28,7 @@
 
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
 /// Defines a string-newtype ID with a uniform constructor and accessor.
@@ -82,10 +82,13 @@ id_type! {
 /// agent-tooling substrate already standardizes on. Stored here as the lowercase
 /// hex digest; Task 2 may switch the inner representation to a `[u8; 32]`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String")]
 pub struct ContentHash(String);
 
 impl ContentHash {
-    /// Wraps a precomputed lowercase-hex BLAKE3 digest.
+    /// Wraps a precomputed lowercase-hex BLAKE3 digest. For trusted internal
+    /// construction from a freshly computed digest; deserialization from untrusted
+    /// input is validated via [`TryFrom<String>`].
     pub fn from_hex(hex: impl Into<String>) -> Self {
         Self(hex.into())
     }
@@ -96,13 +99,28 @@ impl ContentHash {
     }
 }
 
+impl TryFrom<String> for ContentHash {
+    type Error = TypeError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if is_blake3_hex(&value) {
+            Ok(Self(value))
+        } else {
+            Err(TypeError::InvalidContentHash(value))
+        }
+    }
+}
+
 /// Deterministic hash of the effective Cairn configuration. Computed by
 /// `cairn-config`, embedded in worktree identity by `cairn-identity`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String")]
 pub struct ConfigHash(String);
 
 impl ConfigHash {
-    /// Wraps a precomputed lowercase-hex config digest.
+    /// Wraps a precomputed lowercase-hex config digest. For trusted internal
+    /// construction; deserialization from untrusted input is validated via
+    /// [`TryFrom<String>`].
     pub fn from_hex(hex: impl Into<String>) -> Self {
         Self(hex.into())
     }
@@ -111,6 +129,26 @@ impl ConfigHash {
     pub fn as_hex(&self) -> &str {
         &self.0
     }
+}
+
+impl TryFrom<String> for ConfigHash {
+    type Error = TypeError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if is_blake3_hex(&value) {
+            Ok(Self(value))
+        } else {
+            Err(TypeError::InvalidConfigHash(value))
+        }
+    }
+}
+
+/// A BLAKE3 digest is exactly 64 lowercase-hex characters (32 bytes). Used to
+/// validate [`ContentHash`] / [`ConfigHash`] deserialized from untrusted input.
+fn is_blake3_hex(s: &str) -> bool {
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// Daemon ↔ adapter wire-protocol version. Pinned by `cairn-config`, part of
@@ -122,8 +160,26 @@ pub struct ProtocolVersion(pub u32);
 /// nanoseconds since the Unix epoch, UTC. This is recorded for diagnostics and
 /// ordering — it MUST NOT drive freshness decisions, which are content-hash
 /// based (see `cairn-file`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Timestamp(pub i64);
+
+// Serialized as a decimal STRING, not a JSON number: nanosecond timestamps exceed
+// JavaScript's safe-integer range (2^53), so a numeric wire form would silently
+// lose precision in the TypeScript/JS adapter. A string is exact across languages.
+impl Serialize for Timestamp {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Timestamp {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        raw.parse::<i64>()
+            .map(Timestamp)
+            .map_err(serde::de::Error::custom)
+    }
+}
 
 /// Git operation state at the moment a [`RepoEpoch`] is captured (spec Appendix B).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -159,7 +215,7 @@ pub enum SourceClass {
 ///
 /// `content_hash` is the source of truth for freshness. `mtime_observed` is
 /// recorded for diagnostics only and must not drive freshness decisions.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileVersion {
     pub file_id: FileId,
     pub path: PathBuf,
@@ -171,6 +227,25 @@ pub struct FileVersion {
     pub repo_epoch_id: RepoEpochId,
     pub source_class: SourceClass,
 }
+
+// Equality deliberately EXCLUDES `mtime_observed`. It is recorded for diagnostics
+// only; freshness and version identity are content-hash based and must never be
+// time based (the product's core discipline). Two observations of the same file
+// that differ only in mtime are equal.
+impl PartialEq for FileVersion {
+    fn eq(&self, other: &Self) -> bool {
+        self.file_id == other.file_id
+            && self.path == other.path
+            && self.content_hash == other.content_hash
+            && self.size == other.size
+            && self.executable_bit == other.executable_bit
+            && self.symlink_target == other.symlink_target
+            && self.repo_epoch_id == other.repo_epoch_id
+            && self.source_class == other.source_class
+    }
+}
+
+impl Eq for FileVersion {}
 
 /// Captured git operation-state snapshot for a worktree (spec Appendix B).
 ///
@@ -232,9 +307,13 @@ pub enum DaemonEventKind {
 /// Error type for `cairn-types` validation failures.
 #[derive(Debug, Error)]
 pub enum TypeError {
-    /// Input is not lowercase-hex or has wrong length for a 32-byte digest.
+    /// Input is not 64 lowercase-hex characters (a 32-byte BLAKE3 digest).
     #[error("invalid content hash: {0}")]
     InvalidContentHash(String),
+
+    /// Input is not 64 lowercase-hex characters (a 32-byte BLAKE3 digest).
+    #[error("invalid config hash: {0}")]
+    InvalidConfigHash(String),
 }
 
 #[cfg(test)]
@@ -414,5 +493,59 @@ mod tests {
         let json = serde_json::to_string(&caps).unwrap();
         let back: AdapterCapabilities = serde_json::from_str(&json).unwrap();
         assert_eq!(caps, back);
+    }
+
+    #[test]
+    fn timestamp_serializes_as_string_for_js_safety() {
+        // Must be a JSON string, not a number: nanosecond values exceed JS's
+        // safe-integer range and would silently lose precision as a number.
+        let ts = Timestamp(1_700_000_000_000_000_000);
+        assert_eq!(
+            serde_json::to_string(&ts).unwrap(),
+            "\"1700000000000000000\""
+        );
+        let back: Timestamp = serde_json::from_str("\"1700000000000000000\"").unwrap();
+        assert_eq!(back, ts);
+    }
+
+    #[test]
+    fn content_and_config_hash_deserialization_validates() {
+        let ok = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        assert!(serde_json::from_str::<ContentHash>(&format!("\"{ok}\"")).is_ok());
+        // Wrong length, uppercase, and non-hex are rejected.
+        assert!(serde_json::from_str::<ContentHash>("\"abc\"").is_err());
+        assert!(
+            serde_json::from_str::<ContentHash>(&format!("\"{}\"", ok.to_uppercase())).is_err()
+        );
+        assert!(serde_json::from_str::<ConfigHash>("\"not-a-hash\"").is_err());
+    }
+
+    #[test]
+    fn file_version_equality_ignores_mtime() {
+        let base = FileVersion {
+            file_id: FileId::new("f1"),
+            path: "src/lib.rs".into(),
+            content_hash: ContentHash::from_hex(
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            ),
+            size: 42,
+            mtime_observed: Timestamp(1),
+            executable_bit: false,
+            symlink_target: None,
+            repo_epoch_id: RepoEpochId::new("re1"),
+            source_class: SourceClass::Source,
+        };
+        let mut later = base.clone();
+        later.mtime_observed = Timestamp(999_999);
+        assert_eq!(base, later, "mtime must not affect FileVersion equality");
+
+        let mut changed = base.clone();
+        changed.content_hash = ContentHash::from_hex(
+            "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        );
+        assert_ne!(
+            base, changed,
+            "a content-hash change must make versions unequal"
+        );
     }
 }

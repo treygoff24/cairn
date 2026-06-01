@@ -11,8 +11,10 @@
 //!   the worktree-relative path, making it stable across rehashes for the same
 //!   logical file.
 
+use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 pub use cairn_types::{ContentHash, FileId, FileVersion, RepoEpochId, SourceClass, Timestamp};
 use thiserror::Error;
@@ -31,6 +33,10 @@ pub enum FileError {
     /// The file's mtime is before the Unix epoch — a system-clock anomaly.
     #[error("mtime before the Unix epoch on {path}")]
     InvalidMtime { path: PathBuf },
+
+    /// A path that must be worktree-relative escaped or named a root.
+    #[error("invalid worktree-relative path {path}: {reason}")]
+    InvalidRelativePath { path: PathBuf, reason: &'static str },
 }
 
 // ---------------------------------------------------------------------------
@@ -40,8 +46,26 @@ pub enum FileError {
 /// Stream the file at `path` through a `blake3::Hasher` and return the
 /// lowercase-hex digest as a [`ContentHash`].
 ///
+/// Symlinks are hashed as the bytes of the link target path returned by
+/// `read_link`, not by opening the target. This keeps dangling symlinks
+/// hashable and makes the hash describe the directory entry that was observed.
+///
 /// Reads in 64 KiB buffers — large files never load entirely into memory.
 pub fn content_hash_path(path: &Path) -> Result<ContentHash, FileError> {
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| FileError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
+
+    if metadata.file_type().is_symlink() {
+        let target = read_symlink_target(path)?;
+        return Ok(content_hash_path_bytes(&target));
+    }
+
+    hash_regular_file_contents(path)
+}
+
+fn hash_regular_file_contents(path: &Path) -> Result<ContentHash, FileError> {
     let file = std::fs::File::open(path).map_err(|e| FileError::Io {
         path: path.to_path_buf(),
         source: e,
@@ -75,6 +99,41 @@ pub fn content_hash_bytes(data: &[u8]) -> ContentHash {
     ContentHash::from_hex(blake3::hash(data).to_hex().to_string())
 }
 
+fn content_hash_path_bytes(path: &Path) -> ContentHash {
+    content_hash_bytes(os_str_bytes(path.as_os_str()).as_ref())
+}
+
+fn read_symlink_target(path: &Path) -> Result<PathBuf, FileError> {
+    std::fs::read_link(path).map_err(|e| FileError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })
+}
+
+#[cfg(unix)]
+fn os_str_bytes(value: &OsStr) -> Cow<'_, [u8]> {
+    use std::os::unix::ffi::OsStrExt;
+
+    Cow::Borrowed(value.as_bytes())
+}
+
+#[cfg(windows)]
+fn os_str_bytes(value: &OsStr) -> Cow<'_, [u8]> {
+    use std::os::windows::ffi::OsStrExt;
+
+    Cow::Owned(
+        value
+            .encode_wide()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect(),
+    )
+}
+
+#[cfg(not(any(unix, windows)))]
+fn os_str_bytes(value: &OsStr) -> Cow<'_, [u8]> {
+    Cow::Borrowed(value.as_encoded_bytes())
+}
+
 // ---------------------------------------------------------------------------
 // file_id derivation
 // ---------------------------------------------------------------------------
@@ -83,17 +142,75 @@ pub fn content_hash_bytes(data: &[u8]) -> ContentHash {
 ///
 /// # Rule
 ///
-/// `FileId` is the worktree-relative path's string representation (Unix
-/// separators, lossy UTF-8). This makes it:
+/// `FileId` is a domain-separated BLAKE3 digest of the validated
+/// worktree-relative path's path-component bytes. This makes it:
 /// - **Deterministic** — same relative path always produces the same `FileId`.
 /// - **Stable** — survives rehashing as long as the file hasn't moved.
-/// - **Human-readable** — useful in diagnostics and event logs.
-pub fn file_id_from_path(relative_path: &Path) -> FileId {
-    // Normalize: strip trailing slashes, use forward slashes.
-    // In practice on macOS/Linux the path already uses '/', but we
-    // defensively convert backslashes (in case of Windows testing).
-    let normalized = relative_path.to_string_lossy().replace('\\', "/");
-    FileId::new(normalized)
+/// - **Byte-safe** — no lossy UTF-8 conversion and no separator substitution.
+///
+/// Absolute paths, root/prefix components, parent-directory traversal, current
+/// directory components, and empty paths are rejected instead of being joined
+/// against a worktree root.
+pub fn file_id_from_path(relative_path: &Path) -> Result<FileId, FileError> {
+    let identity_bytes = validated_relative_path_identity(relative_path)?;
+    let digest = blake3::hash(&identity_bytes);
+
+    Ok(FileId::new(format!("path-blake3:{}", digest.to_hex())))
+}
+
+fn validated_relative_path_identity(relative_path: &Path) -> Result<Vec<u8>, FileError> {
+    let mut identity = b"cairn-file-id-v1\0".to_vec();
+    let mut saw_normal_component = false;
+
+    for component in relative_path.components() {
+        match component {
+            Component::Normal(part) => {
+                saw_normal_component = true;
+                append_path_component(&mut identity, part);
+            }
+            Component::CurDir => {
+                return Err(invalid_relative_path(
+                    relative_path,
+                    "current-directory components are not allowed",
+                ));
+            }
+            Component::ParentDir => {
+                return Err(invalid_relative_path(
+                    relative_path,
+                    "parent-directory components are not allowed",
+                ));
+            }
+            Component::RootDir | Component::Prefix(_) => {
+                return Err(invalid_relative_path(
+                    relative_path,
+                    "absolute/rooted paths are not allowed",
+                ));
+            }
+        }
+    }
+
+    if !saw_normal_component {
+        return Err(invalid_relative_path(
+            relative_path,
+            "path must contain a file component",
+        ));
+    }
+
+    Ok(identity)
+}
+
+fn append_path_component(identity: &mut Vec<u8>, part: &OsStr) {
+    let component = os_str_bytes(part);
+
+    identity.extend_from_slice(&(component.len() as u64).to_le_bytes());
+    identity.extend_from_slice(component.as_ref());
+}
+
+fn invalid_relative_path(relative_path: &Path, reason: &'static str) -> FileError {
+    FileError::InvalidRelativePath {
+        path: relative_path.to_path_buf(),
+        reason,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -130,11 +247,11 @@ fn mtime_for(path: &Path) -> Result<Timestamp, FileError> {
 ///
 /// | Priority | Match                                         | Class           |
 /// |----------|-----------------------------------------------|-----------------|
-/// | 1        | Path component is `tests` or `test`           | `Test`          |
-/// | 2        | Filename `*_test.*` or starts with `test_`    | `Test`          |
-/// | 3        | Path component `node_modules` or `vendor`     | `Vendored`      |
-/// | 4        | Path component `target`, `dist`, `build`      | `BuildArtifact` |
-/// | 5        | Filename `*.lock`                             | `Lockfile`      |
+/// | 1        | Path component `node_modules` or `vendor`     | `Vendored`      |
+/// | 2        | Path component `target`, `dist`, `build`      | `BuildArtifact` |
+/// | 3        | Path component is `tests` or `test`           | `Test`          |
+/// | 4        | Filename `*_test.*` or starts with `test_`    | `Test`          |
+/// | 5        | Known lockfile basename or filename `*.lock`  | `Lockfile`      |
 /// | 6        | Path component `migrations`                   | `Migration`     |
 /// | 7        | Path component `fixtures`                     | `Fixture`       |
 /// | 8        | Extension `.toml`, `.yaml`, `.yml`, `.json`   | `Config`        |
@@ -164,27 +281,7 @@ pub fn classify(relative_path: &Path) -> SourceClass {
 
     let lower_components: Vec<String> = components.iter().map(|s| s.to_lowercase()).collect();
 
-    // Priority 1: test directories
-    if lower_components.iter().any(|c| c == "tests" || c == "test") {
-        return SourceClass::Test;
-    }
-
-    // Priority 2: test file naming patterns
-    if let Some(filename) = components.last() {
-        let lower_name = filename.to_lowercase();
-        if let Some(stem) = filename.split('.').next() {
-            let lower_stem = stem.to_lowercase();
-            if lower_stem.ends_with("_test") || lower_stem.starts_with("test_") {
-                return SourceClass::Test;
-            }
-        }
-        // Also match bare `*_test` without extension
-        if lower_name.ends_with("_test") || lower_name.starts_with("test_") {
-            return SourceClass::Test;
-        }
-    }
-
-    // Priority 3: vendored directories
+    // Priority 1: vendored directories
     if lower_components
         .iter()
         .any(|c| c == "node_modules" || c == "vendor")
@@ -192,7 +289,7 @@ pub fn classify(relative_path: &Path) -> SourceClass {
         return SourceClass::Vendored;
     }
 
-    // Priority 4: build artifact directories
+    // Priority 2: build artifact directories
     if lower_components
         .iter()
         .any(|c| c == "target" || c == "dist" || c == "build")
@@ -200,9 +297,21 @@ pub fn classify(relative_path: &Path) -> SourceClass {
         return SourceClass::BuildArtifact;
     }
 
+    // Priority 3: test directories
+    if lower_components.iter().any(|c| c == "tests" || c == "test") {
+        return SourceClass::Test;
+    }
+
+    // Priority 4: test file naming patterns
+    if let Some(filename) = components.last()
+        && is_test_filename(filename)
+    {
+        return SourceClass::Test;
+    }
+
     // Priority 5: lockfiles
     if let Some(filename) = components.last()
-        && filename.ends_with(".lock")
+        && is_lockfile_basename(filename)
     {
         return SourceClass::Lockfile;
     }
@@ -245,6 +354,46 @@ pub fn classify(relative_path: &Path) -> SourceClass {
 
     // Priority 11: unknown
     SourceClass::Unknown
+}
+
+fn is_test_filename(filename: &str) -> bool {
+    let lower_name = filename.to_lowercase();
+
+    if let Some(stem) = filename.split('.').next() {
+        let lower_stem = stem.to_lowercase();
+        if lower_stem.ends_with("_test") || lower_stem.starts_with("test_") {
+            return true;
+        }
+    }
+
+    // Also match bare `*_test` without extension.
+    lower_name.ends_with("_test") || lower_name.starts_with("test_")
+}
+
+fn is_lockfile_basename(filename: &str) -> bool {
+    let lower_name = filename.to_lowercase();
+
+    lower_name.ends_with(".lock")
+        || matches!(
+            lower_name.as_str(),
+            "package-lock.json"
+                | "npm-shrinkwrap.json"
+                | "pnpm-lock.yaml"
+                | "pnpm-lock.yml"
+                | "yarn.lock"
+                | "bun.lock"
+                | "bun.lockb"
+                | "cargo.lock"
+                | "poetry.lock"
+                | "pipfile.lock"
+                | "uv.lock"
+                | "gemfile.lock"
+                | "composer.lock"
+                | "go.sum"
+                | "mix.lock"
+                | "flake.lock"
+                | "pubspec.lock"
+        )
 }
 
 fn is_generated_extension(filename: &str) -> bool {
@@ -305,6 +454,7 @@ pub fn build_file_version(
     worktree_root: &Path,
     repo_epoch_id: RepoEpochId,
 ) -> Result<FileVersion, FileError> {
+    let file_id = file_id_from_path(relative_path)?;
     let absolute_path = worktree_root.join(relative_path);
 
     let symlink_metadata =
@@ -315,12 +465,7 @@ pub fn build_file_version(
 
     let is_symlink = symlink_metadata.file_type().is_symlink();
     let symlink_target = if is_symlink {
-        Some(
-            std::fs::read_link(&absolute_path).map_err(|e| FileError::Io {
-                path: absolute_path.clone(),
-                source: e,
-            })?,
-        )
+        Some(read_symlink_target(&absolute_path)?)
     } else {
         None
     };
@@ -345,7 +490,6 @@ pub fn build_file_version(
     let executable_bit = false;
 
     let source_class = classify(relative_path);
-    let file_id = file_id_from_path(relative_path);
 
     Ok(FileVersion {
         file_id,
@@ -367,7 +511,6 @@ pub fn build_file_version(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
 
     fn td() -> tempfile::TempDir {
         tempfile::tempdir().expect("failed to create temp dir")
@@ -442,28 +585,91 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn symlink_hash_uses_target_path_bytes_not_target_content() {
+        let dir = td();
+        let target_path = dir.path().join("real_file.txt");
+        let link_path = dir.path().join("link.txt");
+        let link_target = Path::new("real_file.txt");
+
+        std::fs::write(&target_path, b"original target content").unwrap();
+        std::os::unix::fs::symlink(link_target, &link_path).unwrap();
+
+        let original_hash = content_hash_path(&link_path).unwrap();
+        std::fs::write(&target_path, b"changed target content").unwrap();
+        let changed_target_hash = content_hash_path(&link_path).unwrap();
+
+        assert_eq!(original_hash, content_hash_bytes(b"real_file.txt"));
+        assert_eq!(original_hash, changed_target_hash);
+        assert_ne!(
+            original_hash,
+            content_hash_bytes(b"original target content")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_symlink_hashes_without_following_target() {
+        let dir = td();
+        let link_path = dir.path().join("dangling.txt");
+        let missing_target = Path::new("missing-target.txt");
+
+        std::os::unix::fs::symlink(missing_target, &link_path).unwrap();
+
+        assert_eq!(
+            content_hash_path(&link_path).unwrap(),
+            content_hash_bytes(b"missing-target.txt")
+        );
+    }
+
     // ---------------------------------------------------------------
     // file_id derivation
     // ---------------------------------------------------------------
 
     #[test]
     fn file_id_is_deterministic() {
-        let a = file_id_from_path(Path::new("src/main.rs"));
-        let b = file_id_from_path(Path::new("src/main.rs"));
+        let a = file_id_from_path(Path::new("src/main.rs")).unwrap();
+        let b = file_id_from_path(Path::new("src/main.rs")).unwrap();
         assert_eq!(a, b);
     }
 
     #[test]
     fn different_paths_produce_different_ids() {
-        let a = file_id_from_path(Path::new("src/lib.rs"));
-        let b = file_id_from_path(Path::new("src/main.rs"));
+        let a = file_id_from_path(Path::new("src/lib.rs")).unwrap();
+        let b = file_id_from_path(Path::new("src/main.rs")).unwrap();
         assert_ne!(a, b);
     }
 
     #[test]
-    fn file_id_contains_path_string() {
-        let id = file_id_from_path(Path::new("some/deep/path/file.rs"));
-        assert_eq!(id.as_str(), "some/deep/path/file.rs");
+    fn file_id_is_a_domain_separated_digest() {
+        let id = file_id_from_path(Path::new("some/deep/path/file.rs")).unwrap();
+
+        assert!(id.as_str().starts_with("path-blake3:"));
+        assert_eq!(id.as_str().len(), "path-blake3:".len() + 64);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_id_distinguishes_backslash_from_path_separator() {
+        let backslash_path = file_id_from_path(Path::new(r"a\b")).unwrap();
+        let separated_path = file_id_from_path(Path::new("a/b")).unwrap();
+
+        assert_ne!(backslash_path, separated_path);
+    }
+
+    #[test]
+    fn file_id_rejects_absolute_paths() {
+        let result = file_id_from_path(Path::new("/tmp/cairn-file.rs"));
+
+        assert!(matches!(result, Err(FileError::InvalidRelativePath { .. })));
+    }
+
+    #[test]
+    fn file_id_rejects_parent_dir_paths() {
+        let result = file_id_from_path(Path::new("src/../outside.rs"));
+
+        assert!(matches!(result, Err(FileError::InvalidRelativePath { .. })));
     }
 
     // ---------------------------------------------------------------
@@ -495,6 +701,15 @@ mod tests {
             classify(Path::new("subdir/package-lock.json.lock")),
             SourceClass::Lockfile
         );
+        assert_eq!(
+            classify(Path::new("package-lock.json")),
+            SourceClass::Lockfile
+        );
+        assert_eq!(classify(Path::new("pnpm-lock.yaml")), SourceClass::Lockfile);
+        assert_eq!(classify(Path::new("yarn.lock")), SourceClass::Lockfile);
+        assert_eq!(classify(Path::new("poetry.lock")), SourceClass::Lockfile);
+        assert_eq!(classify(Path::new("Gemfile.lock")), SourceClass::Lockfile);
+        assert_eq!(classify(Path::new("composer.lock")), SourceClass::Lockfile);
     }
 
     #[test]
@@ -612,6 +827,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn vendored_and_build_artifacts_beat_test_rules() {
+        assert_eq!(
+            classify(Path::new("node_modules/dep/foo_test.js")),
+            SourceClass::Vendored
+        );
+        assert_eq!(
+            classify(Path::new("vendor/tests/helper.rs")),
+            SourceClass::Vendored
+        );
+        assert_eq!(
+            classify(Path::new("target/debug/foo_test.js")),
+            SourceClass::BuildArtifact
+        );
+    }
+
     // ---------------------------------------------------------------
     // FileVersion construction
     // ---------------------------------------------------------------
@@ -628,7 +859,10 @@ mod tests {
 
         let fv = build_file_version(Path::new("hello.rs"), dir.path(), make_epoch()).unwrap();
 
-        assert_eq!(fv.file_id.as_str(), "hello.rs");
+        assert_eq!(
+            fv.file_id,
+            file_id_from_path(Path::new("hello.rs")).unwrap()
+        );
         assert_eq!(fv.path, Path::new("hello.rs"));
         assert_eq!(fv.content_hash, content_hash_bytes(b"fn main() {}"));
         assert!(fv.size > 0);
@@ -637,8 +871,11 @@ mod tests {
         assert_eq!(fv.source_class, SourceClass::Source);
     }
 
+    #[cfg(unix)]
     #[test]
     fn executable_bit_is_captured() {
+        use std::os::unix::fs::PermissionsExt;
+
         let dir = td();
         let file_path = dir.path().join("script.sh");
         std::fs::write(&file_path, b"#!/bin/sh\necho hi").unwrap();
@@ -651,8 +888,11 @@ mod tests {
         assert!(fv.executable_bit, "executable bit should be set");
     }
 
+    #[cfg(unix)]
     #[test]
     fn non_executable_file_has_no_executable_bit() {
+        use std::os::unix::fs::PermissionsExt;
+
         let dir = td();
         let file_path = dir.path().join("data.txt");
         std::fs::write(&file_path, b"plain data").unwrap();
@@ -665,6 +905,7 @@ mod tests {
         assert!(!fv.executable_bit);
     }
 
+    #[cfg(unix)]
     #[test]
     fn symlink_target_is_captured() {
         let dir = td();
@@ -678,6 +919,40 @@ mod tests {
 
         assert!(fv.symlink_target.is_some());
         assert_eq!(fv.symlink_target.as_ref().unwrap(), &target_path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_file_version_hashes_link_target_path() {
+        let dir = td();
+        let target_path = dir.path().join("real_file.txt");
+        let link_path = dir.path().join("link.txt");
+        let link_target = Path::new("real_file.txt");
+
+        std::fs::write(&target_path, b"target content").unwrap();
+        std::os::unix::fs::symlink(link_target, &link_path).unwrap();
+
+        let fv = build_file_version(Path::new("link.txt"), dir.path(), make_epoch()).unwrap();
+
+        assert_eq!(fv.symlink_target, Some(link_target.to_path_buf()));
+        assert_eq!(fv.content_hash, content_hash_bytes(b"real_file.txt"));
+        assert_eq!(fv.size, b"real_file.txt".len() as u64);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_symlink_file_version_does_not_error() {
+        let dir = td();
+        let link_path = dir.path().join("dangling.txt");
+        let missing_target = Path::new("missing-target.txt");
+
+        std::os::unix::fs::symlink(missing_target, &link_path).unwrap();
+
+        let fv = build_file_version(Path::new("dangling.txt"), dir.path(), make_epoch()).unwrap();
+
+        assert_eq!(fv.symlink_target, Some(missing_target.to_path_buf()));
+        assert_eq!(fv.content_hash, content_hash_bytes(b"missing-target.txt"));
+        assert_eq!(fv.size, b"missing-target.txt".len() as u64);
     }
 
     #[test]
@@ -721,6 +996,17 @@ mod tests {
         let dir = td();
         let result = build_file_version(Path::new("does_not_exist.txt"), dir.path(), make_epoch());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn build_file_version_rejects_absolute_relative_path() {
+        let dir = td();
+        let file_path = dir.path().join("absolute-input.rs");
+        std::fs::write(&file_path, b"fn main() {}").unwrap();
+
+        let result = build_file_version(&file_path, dir.path(), make_epoch());
+
+        assert!(matches!(result, Err(FileError::InvalidRelativePath { .. })));
     }
 
     #[test]
