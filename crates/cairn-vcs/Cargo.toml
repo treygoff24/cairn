@@ -1,0 +1,10 @@
+[package]
+name = "cairn-vcs"
+description = "RepoEpoch — git operation-state capture for the daemon."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]

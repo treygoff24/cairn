@@ -1,0 +1,10 @@
+[package]
+name = "cairn-identity"
+description = "Canonical project/worktree identity for the per-worktree daemon."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]

@@ -1,0 +1,10 @@
+[package]
+name = "cairn-config"
+description = "Deterministic config loading, config hash, and feature/mode flags."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]

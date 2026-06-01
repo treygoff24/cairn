@@ -1,0 +1,14 @@
+[package]
+name = "cairn-app"
+description = "Cairn application crate; builds the `cairn` binary."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "cairn"
+path = "src/main.rs"
+
+[dependencies]

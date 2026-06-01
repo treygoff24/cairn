@@ -4,11 +4,15 @@ A living document of what's happening, what's in flight, and what's next. Update
 
 ---
 
-## Current state (2026-05-26)
+## Current state (2026-06-01)
 
-V2 spec finalized. Implementation plan delivered by GPT-5.5 Pro and patched per Patch Round 1 (all 12 patches + Pro's 3 added patchlets applied). Plan is coherent and ready for Wave 1.1 dispatch. **Repo is now ready for initial commit and remote push.**
+**Build is a go.** After a frank "is this LLM psychosis?" gut-check this session — V1 ground-truthed as real (878 tests verified by running it), spec red-teamed, and the competitive landscape checked — the decision is to build. Key finding: the substrate (graph/index/ledger) is now commoditized by a shipping product, **vexp** (local-first Rust daemon, MCP, advisory staleness, freemium closed-source). Cairn's defensible daylight is the **push-mode hooks layer** (deterministic context injection + edit interception, already proven in V1) — which vexp structurally lacks — plus enforcement and multi-agent coordination. See `cairn-vs-vexp.html` / `vexp-deep-dive.html` (untracked analysis artifacts).
 
-Decision pending: remote will be created as `github.com/treygoff24/cairn` PRIVATE first, flipped to public when Phase 1 ships (working `cairn daemon doctor --self-test` plus passing advance-refusal gates).
+**Wave 1.0 complete** — Phase 1 foundation-risk premortem written (`docs/premortems/phase-1-foundation-risk.md`).
+
+**Wave 1.1 bootstrap prelude committed** — cargo workspace skeleton: root `Cargo.toml`, `rust-toolchain.toml` (pinned 1.95.0), `.cargo/config.toml`, six empty crates (`cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`, `cairn-app`) with compile-only stubs. `cargo check/fmt/clippy --workspace` all green; `cairn` binary builds. **Paused here for regroup before the six-worker fan-out.**
+
+Remote exists: `github.com/treygoff24/cairn.git`. Commits are local (not pushed).
 
 ## What just happened (recent session work)
 
@@ -19,15 +23,17 @@ Decision pending: remote will be created as `github.com/treygoff24/cairn` PRIVAT
 
 ## What's next (the immediate path)
 
-1. **Initial commit + push to private GitHub remote.** Single commit covering all documentation. Remote = `github.com/treygoff24/cairn` (private).
-2. **Wave 1.0** — orchestrator runs the Phase 1 foundation-risk premortem.
-3. **Wave 1.1 bootstrap prelude** — orchestrator commits workspace skeleton (Cargo.toml + empty crate dirs + compile-only lib.rs/main.rs stubs) in a single pre-fan-out commit so all six Wave 1.1 workers can compile against a stable workspace.
-4. **Wave 1.1 dispatch** — six workers in one batch per the plan's §5.
-5. **Phase 1 phase gate + advance-refusal check.** When green, flip remote to public.
+**Regroup decision point** — bootstrap is committed and green; deciding how to enter Wave 1.1:
+
+1. **Tracer-bullet spike (orchestrator recommendation)** — before the six-crate fan-out, build a throwaway end-to-end push-mode latency probe (Claude Code PreToolUse hook → Unix socket → minimal Rust daemon → injected context, p50/p95/p99 measured on the real hot path). Validates the ~25–35 ms bet the whole Rust decision rests on. The plan parks this at Wave 4.1 ("highest-risk wave"); premortem risk-flag recommends pulling a thin slice forward.
+2. **Wave 1.1 fan-out** — six delegate workers in one batch per the plan's §5 (Tasks 1–6: workspace scaffolding, `cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`). Optionally gate on a `plan-reviewer` pass over the bootstrap contract first.
+3. **Phase 1 integration + acceptance** (Wave 1.3): `cairn daemon doctor --self-test`, concurrent-launch single-daemon check, identity determinism fixtures.
+
+Open process questions for the regroup: license (AGPL vs MIT — still unset in `Cargo.toml`), branch/PR workflow vs direct-to-main, and whether to run the plan-reviewer pass before fan-out.
 
 ## In flight
 
-Nothing active. Ready for initial commit and remote push.
+Nothing executing. Bootstrap landed; awaiting regroup decision on tracer-bullet-first vs. six-worker fan-out.
 
 ## Decisions waiting on Trey (non-blocking)
 
@@ -39,8 +45,8 @@ Nothing active. Ready for initial commit and remote push.
 
 | Phase | Status | Notes |
 |---|---|---|
-| Planning | Complete | Plan + Patch Round 1 applied; ready for Wave 1.1 dispatch |
-| 1. Identity substrate | Not started | Awaiting plan |
+| Planning | Complete | Plan + Patch Round 1 applied; build decision confirmed |
+| 1. Identity substrate | In progress | Wave 1.0 premortem done; Wave 1.1 bootstrap committed + gate green; workers not yet dispatched |
 | 2. ObservationLedger + EditLedger + direct freshness | Not started | |
 | 3. ContextFrame ledger + scheduler skeleton | Not started | |
 | 4. Minimal graph (P0-α languages) | Not started | |
@@ -52,10 +58,10 @@ Phases are from the final spec's Appendix A. The implementation plan will subdiv
 
 ## Open punch-list
 
-- Repo has no remote yet.
-- No commit yet — initial commit will happen when Trey decides what to include and signs off.
-- No `Cargo.toml` yet — cargo workspace is defined by the implementation plan (Phase 1).
+- Commits are local; nothing pushed to the remote yet.
+- License unset in `Cargo.toml` (AGPL vs MIT — Trey's call).
 - No `CI` yet — CI strategy is part of cross-cutting strategies in the implementation plan.
+- `site/`, `AGENTS.md`, and the two analysis HTMLs remain untracked (intentional for now).
 
 ## Notes for the orchestrator
 

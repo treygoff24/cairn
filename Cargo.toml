@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cairn-types",
+    "crates/cairn-config",
+    "crates/cairn-identity",
+    "crates/cairn-file",
+    "crates/cairn-vcs",
+    "crates/cairn-app",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+repository = "https://github.com/treygoff24/cairn"
+authors = ["Trey Goff"]
+
+# Shared dependencies are pinned once here and inherited by member crates as the
+# build grows. Empty at bootstrap — Wave 1.1 Task 2 (cairn-types) adds the first.
+[workspace.dependencies]
