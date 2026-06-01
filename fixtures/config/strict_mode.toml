@@ -1,0 +1,19 @@
+# Cairn configuration with strict enforcement mode.
+protocol_version = 2
+mode = "strict"
+
+[features]
+diagnostics = true
+extract = true
+context_injection = true
+edit_interception = true
+multi_agent_coordination = true
+
+[ablation]
+disable_ledger = false
+disable_freshness_check = false
+disable_graph = false
+disable_hooks = false
+disable_scheduler = false
+
+project_name = "strict-project"

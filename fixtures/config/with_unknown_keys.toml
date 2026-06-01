@@ -1,0 +1,20 @@
+# Config with unknown top-level keys (forward-compatibility test fixture).
+protocol_version = 3
+mode = "advisory"
+
+unknown_field = "this should be silently ignored"
+future_version_key = 2026
+
+[unknown_section]
+foo = 1
+bar = "baz"
+nested = { deep = "value" }
+
+[features]
+diagnostics = true
+extract = false
+context_injection = true
+edit_interception = false
+multi_agent_coordination = true
+
+project_name = "future-proof-test"

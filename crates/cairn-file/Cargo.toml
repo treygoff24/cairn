@@ -9,6 +9,12 @@ authors.workspace = true
 
 [dependencies]
 cairn-types = { workspace = true }
+blake3 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tempfile = "3"
 
 [lints]
 workspace = true

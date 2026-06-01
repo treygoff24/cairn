@@ -9,6 +9,8 @@ authors.workspace = true
 
 [dependencies]
 cairn-types = { workspace = true }
+blake3 = { workspace = true }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

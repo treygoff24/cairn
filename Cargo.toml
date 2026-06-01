@@ -35,6 +35,8 @@ toml = "0.8"
 # Errors: thiserror for typed library errors, anyhow for the binary's top level.
 thiserror = "2"
 anyhow = "1"
+# Test-only: hermetic temp directories for fixtures.
+tempfile = "3"
 
 # Lint posture is decided once and inherited by every crate via `[lints] workspace =
 # true`, so a worker's lighter local clippy run can't drift from the orchestrator's

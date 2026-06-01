@@ -1,0 +1,18 @@
+# Same logical config as valid_full.toml but with keys in different order.
+mode = "default"
+protocol_version = 1
+project_name = "test-project"
+
+[ablation]
+disable_scheduler = false
+disable_hooks = false
+disable_graph = false
+disable_freshness_check = false
+disable_ledger = false
+
+[features]
+multi_agent_coordination = false
+edit_interception = true
+context_injection = true
+extract = true
+diagnostics = true
