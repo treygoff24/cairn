@@ -22,7 +22,13 @@ A living document of what's happening, what's in flight, and what's next. Update
 
 **Phase 1 bootstrap-amendment applied (2026-06-01, `ca508ff`).** Before fanning out Wave 1.1, a `plan-reviewer` pass attacked the bootstrap contract and surfaced three blockers, all now closed by the orchestrator: (1) the `cairn-types` public surface — promised as the anti-divergence guard but never actually written — is now frozen on disk (typed IDs, `ContentHash`/`ConfigHash`/`ProtocolVersion`/`Timestamp`, `OperationState`/`SourceClass` enums, `FileVersion`/`RepoEpoch` shapes, the 10-bit `AdapterCapabilities`, `DaemonEventKind`), so Tasks 3–6 consume one definition instead of each inventing their own; (2) a deferred-types doc block scopes `cairn-types` to Phase 1 and explicitly bars `graph_version`/`GraphVersion` (a Phase 4 concept) from the identity floor; (3) `[workspace.dependencies]` is pinned once (serde, serde_json, **blake3** as the named content-hash algorithm, toml, thiserror, anyhow) with workers forbidden from editing it, plus a `[workspace.lints]` table inherited by all crates. `fixtures/{config,identity,files,vcs}/` + `docs/dev/` scaffolded; `Cargo.lock` now tracked. Gate green (fmt/check/clippy --all-targets). Load-bearing choices made by the orchestrator and open to override: content hash = BLAKE3; git access in `cairn-vcs` = direct `.git/` reads for Phase 1 (no library dependency), deferring gix-vs-git2 until a wave needs git object access.
 
-Remote: `github.com/treygoff24/cairn.git`. Commits pushed through `918c022`; `ca508ff` (the amendment) pushed next.
+**Wave 1.1 COMPLETE (2026-06-01).** The five identity-substrate crates landed via a parallel delegate-worker swarm against the frozen `cairn-types` contract, were integrated and gated once at the orchestrator, then put through a mandatory per-crate independent review (different model than each implementer). Green wave committed at `7e41afd`; review fixes at `db75ef6`. Final gate: fmt + clippy clean, **109 tests across 11 suites**.
+
+- Crates: `cairn-types` (grok), `cairn-config` (deepseek-flash + orchestrator fixes), `cairn-identity` (codex), `cairn-file` (deepseek-pro + codex fixes), `cairn-vcs` (cursor + orchestrator fixes).
+- Bugs the gate/review caught (workers never run tests, by CPU discipline): config nested-unknown-key handling + a `config_hash` crash for named projects; vcs linked-worktree `commondir` resolution + non-committable `.git` fixtures; **2 BLOCKERs** in review — `cairn-file` symlink hashing followed the target (now hashes the link), and `mtime_observed` was in `FileVersion` equality (now excluded — the freshness discipline). Plus `Timestamp` now serializes as a JS-safe string and `ContentHash`/`ConfigHash` validate on deserialize.
+- `cairn-identity` (highest blast radius) reviewed structurally sound: length-prefixed BLAKE3 ID framing, no false-match on normal paths. Downstream note: storage/daemon must not partition on `WorktreeId` alone (config-hash + protocol live in `WorktreeIdentity`, not the `WorktreeId` hash).
+
+Remote: `github.com/treygoff24/cairn.git`. All commits pushed through `db75ef6`.
 
 ## What just happened (recent session work)
 
@@ -35,15 +41,17 @@ Remote: `github.com/treygoff24/cairn.git`. Commits pushed through `918c022`; `ca
 
 Wave 0 (tracer bullet) is done and green, and **Patch Round 2 is applied** (`docs/Cairn Implementation Plan — Patch Round 2.md`): Cairn reframed as a **superset of vexp** (match the substrate because the moat's precision rides on it, then add the push-mode/enforcement/coordination moat — do NOT thin the substrate), V1 narrowed to a **TS + Python vertical slice**, peripheral crates (web, p0beta, bridges, most frameworks, federation/leases/broadcasts, metrics gym) deferred out of the V1 critical path, and a **cry-wolf precision gate** (self-edit false-positive < 0.5%, §3) pulled forward as an early hard milestone reusing the tracer rig.
 
-**Immediate next step: dispatch the Phase 1 / Wave 1.1 six-worker fan-out** per the plan's §4 (Tasks 1–6: workspace/policy scaffolding, `cairn-types` bodies, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`). Phase 1 (identity substrate) is invariant to Patch Round 2, and the bootstrap contract has now passed a `plan-reviewer` pass + amendment (`ca508ff`) — so it is fan-out-ready. Workers inherit the frozen `cairn-types` surface and the pinned workspace deps; they must NOT edit root `[workspace.dependencies]` or redefine the frozen types. Each worker: rust-engineer + clean-code + CPU discipline (own `CARGO_TARGET_DIR`, `cargo check -p <crate>` / `clippy` only), no commits. Orchestrator runs the full gate once at wave close.
+**Immediate next step: Wave 1.2 — storage, protocol, daemon core** (plan §4 Wave 1.2). Six tasks: `cairn-storage` (append-only event log, monotonic IDs, WAL, credential redaction), `cairn-protocol` (daemon event + decision envelopes), `cairn-daemon-client` (connect-or-launch, fail-open), `cairn-daemon` (single-instance lifecycle, lease, heartbeat, stale-lease recovery), `cairn-cli` (status + doctor), `cairn-harness-sim` (Phase 1 daemon fixture). Before fan-out, the orchestrator commits the Wave 1.2 wave-internal contract (trait skeletons for `EventLog`, `DaemonEvent`/`DaemonDecision` enum shells with the 12 envelope variants stubbed, `DaemonClient` trait) per the plan. Same loop: contract → fan-out → integrate → gate once → independent review.
 
-Then: Phase 2 ledgers + direct freshness → thin real Claude hook adapter (brought forward) → **cry-wolf precision gate** → minimal TS+Python graph → dependency staleness → initial MCP tools. That's the vertical slice.
+Carry-forward note for Wave 1.2: the event log is the spinal cord — freeze the Phase 1 event-log golden fixture at the Wave 1.3 boundary. `cairn-storage`/`cairn-protocol` consume the frozen `cairn-types` `DaemonEventKind` + envelopes; `Timestamp` is a JS-safe string on the wire; hashes validate on deserialize.
 
-Open process questions: license (AGPL vs MIT — unset in `Cargo.toml`), branch/PR workflow vs direct-to-main, plan-reviewer pass before fan-out, whether to push commits to the remote.
+Then: Wave 1.3 (app wiring, capability registration, V1 corpus inventory, Phase 1 stress tests + golden fixture) closes Phase 1 → Phase 2 ledgers + direct freshness → thin real Claude hook adapter (brought forward) → **cry-wolf precision gate** → minimal TS+Python graph → dependency staleness → initial MCP tools. That's the vertical slice.
+
+Open process questions: license (AGPL vs MIT — unset in `Cargo.toml`); branch/PR workflow vs direct-to-main (currently direct-to-main, pushed).
 
 ## In flight
 
-Nothing executing. Bootstrap + Wave 0 tracer bullet landed and green; awaiting regroup decision on Phase 1 scope and fan-out.
+Nothing executing. Wave 1.1 fully landed (green + reviewed + fixed, pushed `db75ef6`). Ready to start Wave 1.2.
 
 ## Decisions waiting on Trey (non-blocking)
 
@@ -56,7 +64,7 @@ Nothing executing. Bootstrap + Wave 0 tracer bullet landed and green; awaiting r
 | Phase | Status | Notes |
 |---|---|---|
 | Planning | Complete | Plan + Patch Round 1 applied; build decision confirmed |
-| 1. Identity substrate | In progress | Wave 1.0 premortem done; Wave 1.1 bootstrap committed + gate green; plan-reviewer pass + amendment (`ca508ff`) closed 3 contract blockers; workers not yet dispatched |
+| 1. Identity substrate | In progress | Wave 1.0 premortem ✓; Wave 1.1 ✓ (5 crates green + independently reviewed + fixed, `db75ef6`, 109 tests); Wave 1.2 (storage/protocol/daemon) next; Wave 1.3 (integration + golden fixture) after |
 | 2. ObservationLedger + EditLedger + direct freshness | Not started | |
 | 3. ContextFrame ledger + scheduler skeleton | Not started | |
 | 4. Minimal graph (P0-α languages) | Not started | |
