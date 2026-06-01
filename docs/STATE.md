@@ -10,7 +10,15 @@ A living document of what's happening, what's in flight, and what's next. Update
 
 **Wave 1.0 complete** — Phase 1 foundation-risk premortem written (`docs/premortems/phase-1-foundation-risk.md`).
 
-**Wave 1.1 bootstrap prelude committed** — cargo workspace skeleton: root `Cargo.toml`, `rust-toolchain.toml` (pinned 1.95.0), `.cargo/config.toml`, six empty crates (`cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`, `cairn-app`) with compile-only stubs. `cargo check/fmt/clippy --workspace` all green; `cairn` binary builds. **Paused here for regroup before the six-worker fan-out.**
+**Wave 1.1 bootstrap prelude committed** — cargo workspace skeleton: root `Cargo.toml`, `rust-toolchain.toml` (pinned 1.95.0), `.cargo/config.toml`, six empty crates (`cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`, `cairn-app`) with compile-only stubs. `cargo check/fmt/clippy --workspace` all green; `cairn` binary builds.
+
+**Wave 0 tracer bullet — COMPLETE, both existential bets validated (2026-06-01).** Built a throwaway end-to-end push-mode rig in `~/Code/cairn-tracer-sandbox` (separate disposable repo, not committed): Claude Code PreToolUse/PostToolUse hook → Unix socket → minimal Rust daemon → injected context. Four crates built by a 4-worker parallel fan-out against an orchestrator-owned contract.
+
+- **Latency: GREEN.** Scripted floor (unconfounded): warm p95 full per-call cost ~2.15 ms — process-spawn-dominated; the hook's own work is ~0.076 ms and the daemon round-trip ~0.022 ms. In real Claude Code: hook in-process work warm p95 ~0.2 ms, 0 parse errors. Cold start (first call launches daemon) ~14–230 ms, one-time. All far under the 25 ms budget. Quantifies the "hook startup latency is product surface area" thesis: ~2 ms spawn for a Rust hook vs 50–200 ms for an interpreted one.
+- **Mechanism: works in the real harness.** Hook fires on every tool call, parses real CC stdin cleanly, injects `additionalContext` on advisory Edit/Write.
+- **Behavior: CONFIRMED (the one that mattered).** In the live session the injected note reached the model as an attachment and the agent *acted on it* — re-read the file before editing because the note told it to. Answers red-team Risk #1 ("will agents use pushed context?") = yes, with a transcript receipt. This is the differentiator vexp's pull-mode cannot guarantee.
+- **Gaps:** n=1 behavioral sample; enforce/deny path not exercised live; felt-latency A/B (vs stacked V1 hooks) not measured.
+- **Design note (cry-wolf):** the tracer fires its note *unconditionally* on every Edit/Write — it's a hardcoded synthetic string; the rig has no staleness logic, by design. A live agent immediately noticed the false positive and flagged it would learn to tune the warning out. Direct field evidence that the real product's **signal precision is make-or-break** — exactly what the spec's per-session content-hash observation ledger (not mtime) + the <0.5% self-edit-false-positive target (§3) exist to deliver.
 
 Remote exists: `github.com/treygoff24/cairn.git`. Commits are local (not pushed).
 
@@ -23,17 +31,17 @@ Remote exists: `github.com/treygoff24/cairn.git`. Commits are local (not pushed)
 
 ## What's next (the immediate path)
 
-**Regroup decision point** — bootstrap is committed and green; deciding how to enter Wave 1.1:
+Wave 0 (tracer bullet) is done and green — the push-mode thesis is validated end-to-end. Regroup decision now: **greenlight the Phase 1 build, and at what scope?**
 
-1. **Tracer-bullet spike (orchestrator recommendation)** — before the six-crate fan-out, build a throwaway end-to-end push-mode latency probe (Claude Code PreToolUse hook → Unix socket → minimal Rust daemon → injected context, p50/p95/p99 measured on the real hot path). Validates the ~25–35 ms bet the whole Rust decision rests on. The plan parks this at Wave 4.1 ("highest-risk wave"); premortem risk-flag recommends pulling a thin slice forward.
-2. **Wave 1.1 fan-out** — six delegate workers in one batch per the plan's §5 (Tasks 1–6: workspace scaffolding, `cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`). Optionally gate on a `plan-reviewer` pass over the bootstrap contract first.
-3. **Phase 1 integration + acceptance** (Wave 1.3): `cairn daemon doctor --self-test`, concurrent-launch single-daemon check, identity determinism fixtures.
+1. **Phase 1 / Wave 1.1 six-worker fan-out** per the plan's §5 (Tasks 1–6: workspace scaffolding, `cairn-types`, `cairn-config`, `cairn-identity`, `cairn-file`, `cairn-vcs`). Optionally gate on a `plan-reviewer` pass over the bootstrap contract first.
+2. **Scope question raised by the vexp finding** — decide whether to trim the 26-crate / 14-language plan toward the differentiated push-mode + ledger core before committing the full substrate build (red-team recommended starting ~6–10 crates, 2 languages, and proving the ledger precision that the cry-wolf finding shows is make-or-break). Open.
+3. **Phase 1 acceptance** (Wave 1.3): `cairn daemon doctor --self-test`, concurrent-launch single-daemon check, identity determinism fixtures.
 
-Open process questions for the regroup: license (AGPL vs MIT — still unset in `Cargo.toml`), branch/PR workflow vs direct-to-main, and whether to run the plan-reviewer pass before fan-out.
+Open process questions: license (AGPL vs MIT — unset in `Cargo.toml`), branch/PR workflow vs direct-to-main, plan-reviewer pass before fan-out, whether to push commits to the remote.
 
 ## In flight
 
-Nothing executing. Bootstrap landed; awaiting regroup decision on tracer-bullet-first vs. six-worker fan-out.
+Nothing executing. Bootstrap + Wave 0 tracer bullet landed and green; awaiting regroup decision on Phase 1 scope and fan-out.
 
 ## Decisions waiting on Trey (non-blocking)
 
