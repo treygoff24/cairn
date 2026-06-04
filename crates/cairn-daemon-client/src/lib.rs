@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use cairn_identity::{IdentityError, WorktreeIdentity};
 use cairn_protocol::{DaemonDecision, DaemonEvent, DegradedState};
@@ -106,7 +106,7 @@ impl DaemonClientError {
     /// fail-open decision shape.
     #[must_use]
     pub fn degraded_decision(&self) -> DaemonDecision {
-        let degradation = self.degradation(current_timestamp());
+        let degradation = self.degradation(Timestamp::now());
         DaemonDecision::degraded_allow(degradation.reason, degradation.since)
     }
 }
@@ -220,9 +220,7 @@ impl DaemonSocket {
         identity: &DaemonIdentity,
         socket_dir: impl Into<PathBuf>,
     ) -> Result<Self, DaemonClientError> {
-        let path = socket_dir
-            .into()
-            .join(format!("c-{}.sock", identity.socket_key()));
+        let path = socket_path_for_key(socket_dir, identity.socket_key());
         validate_socket_path(&path)?;
 
         Ok(Self {
@@ -242,6 +240,12 @@ impl DaemonSocket {
     pub fn identity_key(&self) -> &str {
         &self.identity_key
     }
+}
+
+/// Derives the daemon Unix-socket path for a socket root and identity key.
+#[must_use]
+pub fn socket_path_for_key(socket_dir: impl Into<PathBuf>, socket_key: &str) -> PathBuf {
+    socket_dir.into().join(format!("c-{socket_key}.sock"))
 }
 
 /// Explicit timeout and socket-root settings for the sync client.
@@ -657,7 +661,7 @@ impl LocalDaemonClient {
         match self.send_request(&request)? {
             DaemonClientResponse::Decision(decision) => Ok(*decision),
             DaemonClientResponse::Degraded { reason } => {
-                Ok(DaemonDecision::degraded_allow(reason, current_timestamp()))
+                Ok(DaemonDecision::degraded_allow(reason, Timestamp::now()))
             }
             DaemonClientResponse::Status(_) => Err(DaemonClientError::Unavailable(
                 "daemon returned status to an event request".to_owned(),
@@ -672,14 +676,15 @@ fn write_request(
     request: &DaemonClientRequest,
     socket: &DaemonSocket,
 ) -> Result<(), DaemonClientError> {
-    serde_json::to_writer(&mut *stream, request).map_err(|source| {
+    let mut payload = serde_json::to_vec(request).map_err(|source| {
         DaemonClientError::Unavailable(format!(
             "failed to encode daemon request for `{}`: {source}",
             socket.path().display()
         ))
     })?;
+    payload.push(b'\n');
     stream
-        .write_all(b"\n")
+        .write_all(&payload)
         .and_then(|()| stream.flush())
         .map_err(|source| request_io_error("write daemon request", socket, source))
 }
@@ -807,15 +812,6 @@ fn deadline_after(duration: Duration) -> Instant {
         .unwrap_or_else(Instant::now)
 }
 
-fn current_timestamp() -> Timestamp {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-    let clamped = i64::try_from(nanos).unwrap_or(i64::MAX);
-    Timestamp(clamped)
-}
-
 #[cfg(unix)]
 fn path_bytes(path: &Path) -> Vec<u8> {
     use std::os::unix::ffi::OsStrExt;
@@ -841,12 +837,15 @@ fn socket_path_bytes(path: &Path) -> usize {
 }
 
 #[cfg(unix)]
-fn default_socket_dir() -> PathBuf {
-    PathBuf::from("/tmp/cairn")
+pub fn default_socket_dir() -> PathBuf {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("cairn")
 }
 
 #[cfg(not(unix))]
-fn default_socket_dir() -> PathBuf {
+pub fn default_socket_dir() -> PathBuf {
     std::env::temp_dir().join("cairn")
 }
 
@@ -887,13 +886,12 @@ mod tests {
 
     fn heartbeat_event(client: &LocalDaemonClient) -> DaemonEvent {
         DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
-            session_id: None,
+            agent_session_id: None,
             worktree_id: client.identity().worktree().worktree_id.clone(),
-            adapter: AdapterRef {
+            harness: AdapterRef {
                 adapter_id: "test-harness".to_owned(),
                 adapter_kind: AdapterKind::HarnessSim,
             },
-            protocol_version: client.identity().worktree().protocol_version,
             capabilities: AdapterCapabilities::default(),
             sent_at: Timestamp(1),
             daemon_generation_id: None,

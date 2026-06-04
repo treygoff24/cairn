@@ -21,7 +21,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use cairn_config::{CairnConfig, ConfigError};
 use cairn_daemon_client::{
     DaemonClientHello, DaemonClientRequest, DaemonClientResponse, DaemonIdentity,
-    DaemonStatusReport,
+    DaemonStatusReport, default_socket_dir, socket_path_for_key,
 };
 use cairn_identity::{IdentityError, WorktreeIdentity};
 use cairn_protocol::{Confidence, DaemonDecision};
@@ -189,7 +189,7 @@ impl DaemonPaths {
         let runtime_dir = runtime_root.join(scope.storage_key());
         let socket_file = scope
             .socket_key()
-            .map(|socket_key| runtime_root.join(format!("c-{socket_key}.sock")))
+            .map(|socket_key| socket_path_for_key(runtime_root, socket_key))
             .unwrap_or_else(|| runtime_dir.join("daemon.sock"));
         Self {
             lock_file: runtime_dir.join("daemon.lock"),
@@ -237,10 +237,7 @@ impl DaemonPaths {
 /// dirty the user's worktree.
 #[must_use]
 pub fn default_runtime_root() -> PathBuf {
-    std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
-        .join("cairn")
+    default_socket_dir()
 }
 
 /// Start-or-attach lifecycle coordinator for one daemon scope.
@@ -1707,6 +1704,24 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn daemon_paths_use_canonical_client_socket_derivation() {
+        let temp_dir = short_socket_tempdir();
+        let runtime_root = temp_dir.path().join("runtime");
+        let worktree_root = temp_dir.path().join("worktree");
+        let identity = test_worktree_identity(&worktree_root);
+        let socket_key = DaemonIdentity::from_worktree(identity.clone())
+            .socket_key()
+            .to_owned();
+        let paths = DaemonPaths::for_scope(&runtime_root, &DaemonScope::from_identity(&identity));
+
+        assert_eq!(
+            paths.socket_file(),
+            socket_path_for_key(&runtime_root, &socket_key).as_path()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn socket_server_replies_to_daemon_client_status_request() {
         let temp_dir = short_socket_tempdir();
         let runtime_root = temp_dir.path().join("runtime");
@@ -1819,13 +1834,12 @@ mod tests {
 
     fn adapter_heartbeat_event(client: &LocalDaemonClient) -> cairn_protocol::DaemonEvent {
         cairn_protocol::DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
-            session_id: None,
+            agent_session_id: None,
             worktree_id: client.identity().worktree().worktree_id.clone(),
-            adapter: AdapterRef {
+            harness: AdapterRef {
                 adapter_id: "daemon-test".to_owned(),
                 adapter_kind: AdapterKind::HarnessSim,
             },
-            protocol_version: client.identity().worktree().protocol_version,
             capabilities: AdapterCapabilities::default(),
             sent_at: Timestamp(1),
             daemon_generation_id: None,

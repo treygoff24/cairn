@@ -8,13 +8,10 @@
 use std::fmt;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use cairn_daemon_client::{DaemonClient, DaemonClientError, DaemonStatusReport, LocalDaemonClient};
-use cairn_protocol::{
-    AdapterHeartbeat, AdapterKind, AdapterRef, DaemonDecision, DaemonEvent, PROTOCOL_VERSION,
-};
-use cairn_types::{AdapterCapabilities, ProtocolVersion, Timestamp, WorktreeId};
+use cairn_protocol::{AdapterHeartbeat, AdapterKind, AdapterRef, DaemonDecision, DaemonEvent};
+use cairn_types::{AdapterCapabilities, Timestamp, WorktreeId};
 use serde_json::{Value, json};
 
 /// Operator command accepted by the Wave 1.2 CLI surface.
@@ -455,20 +452,14 @@ where
 
 fn heartbeat_event(snapshot: &StatusSnapshot) -> DaemonEvent {
     DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
-        session_id: None,
+        agent_session_id: None,
         worktree_id: WorktreeId::new(snapshot.identity.worktree_id.clone()),
-        adapter: AdapterRef {
+        harness: AdapterRef {
             adapter_id: "cairn-cli".to_owned(),
             adapter_kind: AdapterKind::Other,
         },
-        protocol_version: ProtocolVersion(
-            snapshot
-                .identity
-                .protocol_version
-                .unwrap_or(PROTOCOL_VERSION),
-        ),
         capabilities: AdapterCapabilities::default(),
-        sent_at: current_timestamp(),
+        sent_at: Timestamp::now(),
         daemon_generation_id: snapshot.daemon_generation.clone(),
         token_usage: None,
         queued_event_count: 0,
@@ -542,19 +533,6 @@ where
     }
 
     Ok(())
-}
-
-fn current_timestamp() -> Timestamp {
-    let Ok(duration) = SystemTime::now().duration_since(UNIX_EPOCH) else {
-        return Timestamp(0);
-    };
-
-    let nanos = duration
-        .as_secs()
-        .saturating_mul(1_000_000_000)
-        .saturating_add(u64::from(duration.subsec_nanos()));
-
-    Timestamp(nanos.min(i64::MAX as u64) as i64)
 }
 
 fn optional_text(value: Option<&str>) -> &str {
@@ -805,10 +783,9 @@ mod tests {
             let DaemonEvent::AdapterHeartbeat(heartbeat) = event else {
                 panic!("expected heartbeat event, got {event:?}");
             };
-            assert_eq!(heartbeat.adapter.adapter_id, "cairn-cli");
-            assert_eq!(heartbeat.adapter.adapter_kind, AdapterKind::Other);
+            assert_eq!(heartbeat.harness.adapter_id, "cairn-cli");
+            assert_eq!(heartbeat.harness.adapter_kind, AdapterKind::Other);
             assert_eq!(heartbeat.worktree_id.as_str(), "wt-test");
-            assert_eq!(heartbeat.protocol_version.0, 1);
             assert_eq!(heartbeat.capabilities, AdapterCapabilities::default());
             assert_eq!(heartbeat.daemon_generation_id.as_deref(), Some("gen-1"));
             assert_eq!(self.decision.decision_kind, DaemonDecisionKind::Allow);

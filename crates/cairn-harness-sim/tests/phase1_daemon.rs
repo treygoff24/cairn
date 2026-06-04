@@ -5,9 +5,9 @@ use cairn_harness_sim::{
 };
 use cairn_protocol::{
     AdapterKind, AdapterRef, Confidence, DaemonDecision, DaemonDecisionKind, DaemonEvent,
-    PROTOCOL_VERSION, SessionStart,
+    SessionStart,
 };
-use cairn_types::{AdapterCapabilities, ProtocolVersion, SessionId, Timestamp, WorktreeId};
+use cairn_types::{AdapterCapabilities, SessionId, Timestamp, WorktreeId};
 use tempfile::tempdir;
 
 #[test]
@@ -77,12 +77,8 @@ fn fixture_records_capability_registrations_and_heartbeats_in_order() {
             panic!("unexpected event recorded: {event:?}");
         };
         assert_eq!(
-            heartbeat.adapter.adapter_kind,
+            heartbeat.harness.adapter_kind,
             cairn_protocol::AdapterKind::HarnessSim
-        );
-        assert_eq!(
-            heartbeat.protocol_version.0,
-            cairn_protocol::PROTOCOL_VERSION
         );
         assert_eq!(heartbeat.capabilities, capabilities);
         assert_eq!(heartbeat.daemon_generation_id.as_deref(), Some("1"));
@@ -180,10 +176,10 @@ fn custom_client_specs_record_distinct_capability_sets() {
         let DaemonEvent::AdapterHeartbeat(heartbeat) = event else {
             panic!("unexpected event recorded: {event:?}");
         };
-        let expected_capabilities = match heartbeat.adapter.adapter_id.as_str() {
+        let expected_capabilities = match heartbeat.harness.adapter_id.as_str() {
             "codex" => observing,
             "claude-code" => blocking,
-            other => panic!("unexpected heartbeat adapter: {other}"),
+            other => panic!("unexpected heartbeat harness: {other}"),
         };
         assert_eq!(heartbeat.capabilities, expected_capabilities);
     }
@@ -206,17 +202,16 @@ fn snapshot_supports_phase2_custom_events_without_relaunching() {
         .expect("simulated client should attach");
 
     let session_start = DaemonEvent::SessionStart(SessionStart {
-        session_id: SessionId::new("phase2-session"),
+        agent_session_id: SessionId::new("phase2-session"),
         root_session_id: SessionId::new("phase2-session"),
         parent_session_id: None,
         spawn_event_id: None,
         lineage_depth: 0,
         worktree_id: WorktreeId::new(worktree_id_value(worktree.path())),
-        adapter: AdapterRef {
+        harness: AdapterRef {
             adapter_id: client.client_name().to_owned(),
             adapter_kind: AdapterKind::HarnessSim,
         },
-        protocol_version: ProtocolVersion(PROTOCOL_VERSION),
         capabilities,
         repo_epoch: None,
         started_at: Timestamp(42),
@@ -262,17 +257,16 @@ fn custom_events_for_other_worktrees_are_rejected() {
         .expect("simulated client should attach");
 
     let event = DaemonEvent::SessionStart(SessionStart {
-        session_id: SessionId::new("wrong-worktree-session"),
+        agent_session_id: SessionId::new("wrong-worktree-session"),
         root_session_id: SessionId::new("wrong-worktree-session"),
         parent_session_id: None,
         spawn_event_id: None,
         lineage_depth: 0,
         worktree_id: WorktreeId::new("different-worktree"),
-        adapter: AdapterRef {
+        harness: AdapterRef {
             adapter_id: client.client_name().to_owned(),
             adapter_kind: AdapterKind::HarnessSim,
         },
-        protocol_version: ProtocolVersion(PROTOCOL_VERSION),
         capabilities,
         repo_epoch: None,
         started_at: Timestamp(77),

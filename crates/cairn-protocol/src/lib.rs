@@ -18,10 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// The wire-protocol version this build speaks.
-pub const PROTOCOL_VERSION: u32 = 1;
-
-/// Typed form of [`PROTOCOL_VERSION`] for versioned wire envelopes.
-pub const CURRENT_PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion(PROTOCOL_VERSION);
+pub const CURRENT_PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion(1);
 
 /// Versioned daemon event message for adapter/client wire transport.
 ///
@@ -142,14 +139,13 @@ pub enum AdapterKind {
 /// A session started and registered its daemon-facing capability floor.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionStart {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub root_session_id: SessionId,
     pub parent_session_id: Option<SessionId>,
     pub spawn_event_id: Option<String>,
     pub lineage_depth: u32,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
-    pub protocol_version: ProtocolVersion,
+    pub harness: AdapterRef,
     pub capabilities: AdapterCapabilities,
     pub repo_epoch: Option<RepoEpoch>,
     pub started_at: Timestamp,
@@ -161,9 +157,9 @@ pub struct SessionStart {
 /// A session stopped producing events.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionEnd {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub ended_at: Timestamp,
     pub reason: SessionEndReason,
     pub token_usage: Option<TokenUsage>,
@@ -184,9 +180,9 @@ pub enum SessionEndReason {
 /// A harness tool call is about to execute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolIntent {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: String,
     pub tool_name: String,
     pub input: Value,
@@ -198,9 +194,9 @@ pub struct ToolIntent {
 /// A harness tool call finished.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolResult {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: String,
     pub tool_name: String,
     pub result: ToolResultPayload,
@@ -232,9 +228,9 @@ pub enum ToolStatus {
 /// The agent observed a concrete file version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadObserved {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: Option<String>,
     pub file_version: FileVersion,
     pub observed_at: Timestamp,
@@ -245,9 +241,9 @@ pub struct ReadObserved {
 /// The agent intends to edit a target file and may provide an expected version.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EditIntent {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: String,
     pub file_id: Option<FileId>,
     pub path: PathBuf,
@@ -279,9 +275,9 @@ pub enum EditKind {
 /// An edit completed and records the before/after versions the adapter can prove.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EditApplied {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: String,
     pub file_id: Option<FileId>,
     pub path: PathBuf,
@@ -295,9 +291,9 @@ pub struct EditApplied {
 /// A shell/process command is about to execute.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommandIntent {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: String,
     pub command: CommandSpec,
     pub repo_epoch_id: Option<RepoEpochId>,
@@ -318,9 +314,9 @@ pub struct CommandSpec {
 /// A shell/process command finished.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CommandResult {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub tool_call_id: String,
     pub command: CommandSpec,
     pub result: CommandResultPayload,
@@ -342,9 +338,9 @@ pub struct CommandResultPayload {
 /// The harness is about to compact context and can receive a survival packet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompactIntent {
-    pub session_id: SessionId,
+    pub agent_session_id: SessionId,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
+    pub harness: AdapterRef,
     pub compact_id: String,
     pub current_token_usage: Option<TokenUsage>,
     pub working_set_file_versions: Vec<FileVersion>,
@@ -355,9 +351,9 @@ pub struct CompactIntent {
 /// A repo epoch changed because VCS state or working-tree content changed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VcsStateChanged {
-    pub session_id: Option<SessionId>,
+    pub agent_session_id: Option<SessionId>,
     pub worktree_id: WorktreeId,
-    pub adapter: Option<AdapterRef>,
+    pub harness: Option<AdapterRef>,
     pub previous_epoch: Option<RepoEpoch>,
     pub new_epoch: RepoEpoch,
     pub changed_at: Timestamp,
@@ -379,10 +375,9 @@ pub enum VcsChangeCause {
 /// Adapter liveness, capability, and metrics heartbeat.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AdapterHeartbeat {
-    pub session_id: Option<SessionId>,
+    pub agent_session_id: Option<SessionId>,
     pub worktree_id: WorktreeId,
-    pub adapter: AdapterRef,
-    pub protocol_version: ProtocolVersion,
+    pub harness: AdapterRef,
     pub capabilities: AdapterCapabilities,
     pub sent_at: Timestamp,
     pub daemon_generation_id: Option<String>,
@@ -790,7 +785,7 @@ mod tests {
                 DaemonEvent::SessionStart(sample_session_start()),
                 vec![
                     ("/kind", serde_json::json!("session_start")),
-                    ("/payload/session_id", serde_json::json!("session-1")),
+                    ("/payload/agent_session_id", serde_json::json!("session-1")),
                     (
                         "/payload/root_session_id",
                         serde_json::json!("root-session"),
@@ -817,7 +812,7 @@ mod tests {
                 DaemonEvent::SessionEnd(sample_session_end()),
                 vec![
                     ("/kind", serde_json::json!("session_end")),
-                    ("/payload/session_id", serde_json::json!("session-1")),
+                    ("/payload/agent_session_id", serde_json::json!("session-1")),
                     ("/payload/worktree_id", serde_json::json!("worktree-1")),
                     ("/payload/token_usage/input_tokens", serde_json::json!(100)),
                 ],
@@ -1232,7 +1227,7 @@ mod tests {
 
         let override_deny = OverrideDeny {
             deny_id: "deny-1".into(),
-            agent_session_id: session_id(),
+            agent_session_id: agent_session_id(),
             observed_dependency_versions: vec![file_version("file-2", "src/main.rs", "epoch-2")],
             rationale: "I reread the changed dependency and this edit is still scoped.".into(),
             requested_scope: OverrideScope::SameTargetAndDependencyVersions,
@@ -1255,7 +1250,7 @@ mod tests {
 
         assert_eq!(
             json.pointer("/protocol_version").cloned(),
-            Some(serde_json::json!(PROTOCOL_VERSION))
+            Some(serde_json::json!(CURRENT_PROTOCOL_VERSION.0))
         );
         assert_eq!(
             json.pointer("/event/kind"),
@@ -1274,7 +1269,7 @@ mod tests {
 
         assert_eq!(
             json.pointer("/protocol_version").cloned(),
-            Some(serde_json::json!(PROTOCOL_VERSION))
+            Some(serde_json::json!(CURRENT_PROTOCOL_VERSION.0))
         );
         assert_eq!(
             json.pointer("/decision/decision_kind"),
@@ -1367,14 +1362,13 @@ mod tests {
 
     fn sample_session_start() -> SessionStart {
         SessionStart {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             root_session_id: SessionId::new("root-session"),
             parent_session_id: Some(SessionId::new("parent-session")),
             spawn_event_id: Some("event-42".into()),
             lineage_depth: 1,
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
-            protocol_version: ProtocolVersion(PROTOCOL_VERSION),
+            harness: adapter_ref(),
             capabilities: capabilities(),
             repo_epoch: Some(repo_epoch("epoch-1")),
             started_at: timestamp(),
@@ -1386,9 +1380,9 @@ mod tests {
 
     fn sample_session_end() -> SessionEnd {
         SessionEnd {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             ended_at: timestamp(),
             reason: SessionEndReason::Completed,
             token_usage: Some(token_usage()),
@@ -1397,9 +1391,9 @@ mod tests {
 
     fn sample_tool_intent() -> ToolIntent {
         ToolIntent {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: "tool-1".into(),
             tool_name: "Read".into(),
             input: serde_json::json!({ "path": "src/lib.rs" }),
@@ -1411,9 +1405,9 @@ mod tests {
 
     fn sample_tool_result() -> ToolResult {
         ToolResult {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: "tool-1".into(),
             tool_name: "Read".into(),
             result: tool_result_payload(),
@@ -1425,9 +1419,9 @@ mod tests {
 
     fn sample_read_observed() -> ReadObserved {
         ReadObserved {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: Some("tool-1".into()),
             file_version: file_version("file-1", "src/lib.rs", "epoch-1"),
             observed_at: timestamp(),
@@ -1438,9 +1432,9 @@ mod tests {
 
     fn sample_edit_intent() -> EditIntent {
         EditIntent {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: "tool-2".into(),
             file_id: Some(FileId::new("file-1")),
             path: PathBuf::from("src/lib.rs"),
@@ -1457,9 +1451,9 @@ mod tests {
 
     fn sample_edit_applied() -> EditApplied {
         EditApplied {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: "tool-2".into(),
             file_id: Some(FileId::new("file-1")),
             path: PathBuf::from("src/lib.rs"),
@@ -1473,9 +1467,9 @@ mod tests {
 
     fn sample_command_intent() -> CommandIntent {
         CommandIntent {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: "tool-3".into(),
             command: command_spec(),
             repo_epoch_id: Some(RepoEpochId::new("epoch-1")),
@@ -1485,9 +1479,9 @@ mod tests {
 
     fn sample_command_result() -> CommandResult {
         CommandResult {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             tool_call_id: "tool-3".into(),
             command: command_spec(),
             result: CommandResultPayload {
@@ -1505,9 +1499,9 @@ mod tests {
 
     fn sample_compact_intent() -> CompactIntent {
         CompactIntent {
-            session_id: session_id(),
+            agent_session_id: agent_session_id(),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
+            harness: adapter_ref(),
             compact_id: "compact-1".into(),
             current_token_usage: Some(token_usage()),
             working_set_file_versions: vec![file_version("file-1", "src/lib.rs", "epoch-1")],
@@ -1518,9 +1512,9 @@ mod tests {
 
     fn sample_vcs_state_changed() -> VcsStateChanged {
         VcsStateChanged {
-            session_id: Some(session_id()),
+            agent_session_id: Some(agent_session_id()),
             worktree_id: worktree_id(),
-            adapter: Some(adapter_ref()),
+            harness: Some(adapter_ref()),
             previous_epoch: Some(repo_epoch("epoch-1")),
             new_epoch: repo_epoch("epoch-2"),
             changed_at: timestamp(),
@@ -1530,10 +1524,9 @@ mod tests {
 
     fn sample_adapter_heartbeat() -> AdapterHeartbeat {
         AdapterHeartbeat {
-            session_id: Some(session_id()),
+            agent_session_id: Some(agent_session_id()),
             worktree_id: worktree_id(),
-            adapter: adapter_ref(),
-            protocol_version: ProtocolVersion(PROTOCOL_VERSION),
+            harness: adapter_ref(),
             capabilities: capabilities(),
             sent_at: timestamp(),
             daemon_generation_id: Some("daemon-gen-1".into()),
@@ -1629,7 +1622,7 @@ mod tests {
         })
     }
 
-    fn session_id() -> SessionId {
+    fn agent_session_id() -> SessionId {
         SessionId::new("session-1")
     }
 

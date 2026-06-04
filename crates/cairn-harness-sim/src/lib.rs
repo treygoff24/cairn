@@ -25,9 +25,8 @@ use std::{
 use cairn_daemon_client::{DaemonClient, DaemonClientError};
 use cairn_protocol::{
     AdapterHeartbeat, AdapterKind, AdapterRef, Confidence, DaemonDecision, DaemonEvent,
-    PROTOCOL_VERSION,
 };
-use cairn_types::{AdapterCapabilities, ProtocolVersion, SessionId, Timestamp, WorktreeId};
+use cairn_types::{AdapterCapabilities, SessionId, Timestamp, WorktreeId};
 
 /// First deterministic generation assigned by the simulated registry.
 pub const FIRST_DAEMON_GENERATION: DaemonGeneration = DaemonGeneration(1);
@@ -303,13 +302,12 @@ impl SimulatedClient {
 
     fn heartbeat_event(&self, sent_at: Timestamp, generation: DaemonGeneration) -> DaemonEvent {
         DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
-            session_id: Some(SessionId::new(self.spec.client_name.clone())),
+            agent_session_id: Some(SessionId::new(self.spec.client_name.clone())),
             worktree_id: WorktreeId::new(worktree_id_value(&self.worktree_root)),
-            adapter: AdapterRef {
+            harness: AdapterRef {
                 adapter_id: self.spec.client_name.clone(),
                 adapter_kind: AdapterKind::HarnessSim,
             },
-            protocol_version: ProtocolVersion(PROTOCOL_VERSION),
             capabilities: self.spec.capabilities,
             sent_at,
             daemon_generation_id: Some(generation.get().to_string()),
@@ -728,17 +726,17 @@ struct EventOrderKey {
     timestamp: Timestamp,
     kind_order: u8,
     adapter_id: String,
-    session_id: String,
+    agent_session_id: String,
     tie_breaker: String,
 }
 
 impl EventOrderKey {
-    fn new(timestamp: Timestamp, kind_order: u8, adapter_id: &str, session_id: &str) -> Self {
+    fn new(timestamp: Timestamp, kind_order: u8, adapter_id: &str, agent_session_id: &str) -> Self {
         Self {
             timestamp,
             kind_order,
             adapter_id: adapter_id.to_owned(),
-            session_id: session_id.to_owned(),
+            agent_session_id: agent_session_id.to_owned(),
             tie_breaker: String::new(),
         }
     }
@@ -759,73 +757,73 @@ fn event_order_key(event: &DaemonEvent) -> EventOrderKey {
         DaemonEvent::SessionStart(payload) => EventOrderKey::new(
             payload.started_at,
             0,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::SessionEnd(payload) => EventOrderKey::new(
             payload.ended_at,
             1,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::ToolIntent(payload) => EventOrderKey::new(
             payload.occurred_at,
             2,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::ToolResult(payload) => EventOrderKey::new(
             payload.occurred_at,
             3,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::ReadObserved(payload) => EventOrderKey::new(
             payload.observed_at,
             4,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::EditIntent(payload) => EventOrderKey::new(
             payload.occurred_at,
             5,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::EditApplied(payload) => EventOrderKey::new(
             payload.applied_at,
             6,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::CommandIntent(payload) => EventOrderKey::new(
             payload.occurred_at,
             7,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::CommandResult(payload) => EventOrderKey::new(
             payload.occurred_at,
             8,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::CompactIntent(payload) => EventOrderKey::new(
             payload.occurred_at,
             9,
-            payload.adapter.adapter_id.as_str(),
-            payload.session_id.as_str(),
+            payload.harness.adapter_id.as_str(),
+            payload.agent_session_id.as_str(),
         ),
         DaemonEvent::VcsStateChanged(payload) => EventOrderKey::new(
             payload.changed_at,
             10,
             payload
-                .adapter
+                .harness
                 .as_ref()
                 .map(|adapter| adapter.adapter_id.as_str())
                 .unwrap_or_default(),
             payload
-                .session_id
+                .agent_session_id
                 .as_ref()
                 .map(SessionId::as_str)
                 .unwrap_or_default(),
@@ -833,9 +831,9 @@ fn event_order_key(event: &DaemonEvent) -> EventOrderKey {
         DaemonEvent::AdapterHeartbeat(payload) => EventOrderKey::new(
             payload.sent_at,
             11,
-            payload.adapter.adapter_id.as_str(),
+            payload.harness.adapter_id.as_str(),
             payload
-                .session_id
+                .agent_session_id
                 .as_ref()
                 .map(SessionId::as_str)
                 .unwrap_or_default(),

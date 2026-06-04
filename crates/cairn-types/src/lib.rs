@@ -26,7 +26,10 @@
 //! - The full `DaemonEvent` envelope structs (Wave 1.2 `cairn-protocol`). Only the
 //!   event-*kind* discriminant ([`DaemonEventKind`]) lives here.
 
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
@@ -162,6 +165,19 @@ pub struct ProtocolVersion(pub u32);
 /// based (see `cairn-file`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Timestamp(pub i64);
+
+impl Timestamp {
+    /// Returns the current wall-clock timestamp as nanoseconds since the Unix epoch.
+    #[must_use]
+    pub fn now() -> Self {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        let clamped = i64::try_from(nanos).unwrap_or(i64::MAX);
+        Self(clamped)
+    }
+}
 
 // Serialized as a decimal STRING, not a JSON number: nanosecond timestamps exceed
 // JavaScript's safe-integer range (2^53), so a numeric wire form would silently

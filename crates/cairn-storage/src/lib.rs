@@ -71,6 +71,9 @@ pub enum StorageError {
     /// SQLite returned a rowid that cannot be a Cairn event id.
     #[error("SQLite returned invalid event rowid {0}")]
     InvalidRowId(i64),
+    /// Persisted protocol versions disagreed or are not supported by this build.
+    #[error("stored protocol version {stored} does not match envelope protocol version {envelope}")]
+    ProtocolVersionMismatch { stored: u32, envelope: u32 },
 }
 
 /// SQLite-WAL implementation of [`EventLog`].
@@ -123,7 +126,7 @@ impl EventLog for SqliteEventLog {
     fn replay(&self, after: Option<EventId>) -> Result<Vec<(EventId, DaemonEvent)>, Self::Error> {
         let after = after.map(event_id_to_rowid).transpose()?;
         let mut stmt = self.conn.prepare(
-            "SELECT event_id, payload
+            "SELECT event_id, protocol_version, payload
              FROM events
              WHERE (?1 IS NULL OR event_id > ?1)
              ORDER BY event_id ASC",
@@ -133,8 +136,9 @@ impl EventLog for SqliteEventLog {
 
         while let Some(row) = rows.next()? {
             let event_id = event_id_from_rowid(row.get::<_, i64>(0)?)?;
-            let payload = row.get::<_, String>(1)?;
-            let event = deserialize_persisted_event(&payload)?;
+            let protocol_version = row.get::<_, u32>(1)?;
+            let payload = row.get::<_, String>(2)?;
+            let event = deserialize_persisted_event(protocol_version, &payload)?;
             events.push((event_id, event));
         }
 
@@ -233,14 +237,25 @@ fn event_id_from_rowid(rowid: i64) -> Result<EventId, StorageError> {
 fn serialize_redacted_event(event: &DaemonEvent) -> Result<String, StorageError> {
     let mut value = serde_json::to_value(DaemonEventEnvelope::current(event.clone()))?;
     redact_json_strings(&mut value);
-    let envelope = serde_json::from_value::<DaemonEventEnvelope>(value)?;
 
-    serde_json::to_string(&envelope).map_err(StorageError::from)
+    serde_json::to_string(&value).map_err(StorageError::from)
 }
 
-fn deserialize_persisted_event(payload: &str) -> Result<DaemonEvent, StorageError> {
+fn deserialize_persisted_event(
+    stored_protocol_version: u32,
+    payload: &str,
+) -> Result<DaemonEvent, StorageError> {
     let envelope = serde_json::from_str::<DaemonEventEnvelope>(payload)?;
+    validate_protocol_version(stored_protocol_version, envelope.protocol_version.0)?;
     Ok(envelope.event)
+}
+
+fn validate_protocol_version(stored: u32, envelope: u32) -> Result<(), StorageError> {
+    if stored == CURRENT_PROTOCOL_VERSION.0 && envelope == CURRENT_PROTOCOL_VERSION.0 {
+        return Ok(());
+    }
+
+    Err(StorageError::ProtocolVersionMismatch { stored, envelope })
 }
 
 fn redact_json_strings(value: &mut serde_json::Value) {
@@ -385,9 +400,10 @@ mod tests {
     use std::{sync::Arc, thread};
 
     use cairn_protocol::{
-        AdapterHeartbeat, AdapterKind, AdapterRef, DegradedState, PROTOCOL_VERSION,
+        AdapterHeartbeat, AdapterKind, AdapterRef, CURRENT_PROTOCOL_VERSION, DegradedState,
+        ToolIntent,
     };
-    use cairn_types::{AdapterCapabilities, ProtocolVersion, Timestamp, WorktreeId};
+    use cairn_types::{AdapterCapabilities, Timestamp, WorktreeId};
     use tempfile::TempDir;
 
     use super::*;
@@ -518,9 +534,10 @@ mod tests {
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .expect("stored payload");
-        let decoded = deserialize_persisted_event(&payload).expect("payload decodes");
+        let decoded =
+            deserialize_persisted_event(protocol_version, &payload).expect("payload decodes");
 
-        assert_eq!(protocol_version, PROTOCOL_VERSION);
+        assert_eq!(protocol_version, CURRENT_PROTOCOL_VERSION.0);
         assert!(!payload.contains("ghp_123456789abcdef"));
         assert_eq!(
             decoded,
@@ -574,6 +591,33 @@ mod tests {
         assert_eq!(value["token_usage"]["input_tokens"], 12);
         assert_eq!(value["token_usage"]["label"], "keep diagnostics readable");
         assert_eq!(value["safe"], "not-a-secret");
+    }
+
+    #[test]
+    fn append_redacts_secret_named_validated_shape_without_revalidating_payload() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut log = SqliteEventLog::open(dir.path().join("events.db")).expect("open log");
+        let event = tool_intent_with_secret_named_file_version();
+
+        log.append(&event)
+            .expect("append should not revalidate redacted JSON");
+
+        let (protocol_version, payload): (u32, String) = log
+            .connection()
+            .query_row(
+                "SELECT protocol_version, payload FROM events WHERE event_id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("stored payload");
+        let replayed = log.replay(None).expect("redacted payload should replay");
+
+        assert_eq!(protocol_version, CURRENT_PROTOCOL_VERSION.0);
+        assert!(
+            !payload.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
+        assert!(payload.contains(REDACTED));
+        assert_eq!(replayed.len(), 1);
     }
 
     #[test]
@@ -651,13 +695,12 @@ mod tests {
 
     fn heartbeat_with_degraded_reason(timestamp: i64, degraded_reason: &str) -> DaemonEvent {
         DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
-            session_id: None,
+            agent_session_id: None,
             worktree_id: WorktreeId::new("storage-test-worktree"),
-            adapter: AdapterRef {
+            harness: AdapterRef {
                 adapter_id: "storage-test".to_owned(),
                 adapter_kind: AdapterKind::HarnessSim,
             },
-            protocol_version: ProtocolVersion(PROTOCOL_VERSION),
             capabilities: AdapterCapabilities::default(),
             sent_at: Timestamp(timestamp),
             daemon_generation_id: None,
@@ -668,6 +711,35 @@ mod tests {
                 fail_open: true,
                 since: Timestamp(timestamp),
             }),
+        })
+    }
+
+    fn tool_intent_with_secret_named_file_version() -> DaemonEvent {
+        DaemonEvent::ToolIntent(ToolIntent {
+            agent_session_id: cairn_types::SessionId::new("storage-session"),
+            worktree_id: WorktreeId::new("storage-test-worktree"),
+            harness: AdapterRef {
+                adapter_id: "storage-test".to_owned(),
+                adapter_kind: AdapterKind::HarnessSim,
+            },
+            tool_call_id: "tool-1".to_owned(),
+            tool_name: "Read".to_owned(),
+            input: serde_json::json!({
+                "api_key": {
+                    "file_id": "file-1",
+                    "path": "src/lib.rs",
+                    "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "size": 12,
+                    "mtime_observed": "1",
+                    "executable_bit": false,
+                    "symlink_target": null,
+                    "repo_epoch_id": "epoch-1",
+                    "source_class": "source"
+                }
+            }),
+            repo_epoch_id: None,
+            occurred_at: Timestamp(1),
+            token_usage: None,
         })
     }
 }
