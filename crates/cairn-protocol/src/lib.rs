@@ -88,6 +88,8 @@ pub enum DaemonEvent {
     VcsStateChanged(VcsStateChanged),
     /// Adapter liveness and capability report.
     AdapterHeartbeat(AdapterHeartbeat),
+    /// An adapter registered its capability bitset on attach.
+    CapabilityRegistration(CapabilityRegistration),
 }
 
 impl DaemonEvent {
@@ -107,6 +109,7 @@ impl DaemonEvent {
             Self::CompactIntent(_) => DaemonEventKind::CompactIntent,
             Self::VcsStateChanged(_) => DaemonEventKind::VcsStateChanged,
             Self::AdapterHeartbeat(_) => DaemonEventKind::AdapterHeartbeat,
+            Self::CapabilityRegistration(_) => DaemonEventKind::CapabilityRegistration,
         }
     }
 
@@ -384,6 +387,28 @@ pub struct AdapterHeartbeat {
     pub token_usage: Option<TokenUsage>,
     pub queued_event_count: u32,
     pub degraded: Option<DegradedState>,
+}
+
+/// An adapter's explicit capability registration, emitted when it attaches to the
+/// daemon. The daemon records this so it can compute the strongest behavior each
+/// adapter supports and surface a capability view. Wave 1.3 Task 2 implements the
+/// daemon-side handling and the capability-view query; the Wave 1.3 implementer may
+/// flesh out fields per spec §6 but must not rename this type or its `DaemonEvent`
+/// variant after the golden fixture freezes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CapabilityRegistration {
+    /// Session registering, if the adapter tracks one.
+    pub agent_session_id: Option<SessionId>,
+    /// Worktree the adapter attached to.
+    pub worktree_id: WorktreeId,
+    /// The harness/adapter announcing itself.
+    pub harness: AdapterRef,
+    /// The capability bitset the adapter supports.
+    pub capabilities: AdapterCapabilities,
+    /// When the registration was emitted.
+    pub registered_at: Timestamp,
+    /// Daemon generation the adapter registered against, if known.
+    pub daemon_generation_id: Option<String>,
 }
 
 /// Token accounting reported by adapters that can provide it.

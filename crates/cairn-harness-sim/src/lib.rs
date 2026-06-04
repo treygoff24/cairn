@@ -838,6 +838,16 @@ fn event_order_key(event: &DaemonEvent) -> EventOrderKey {
                 .map(SessionId::as_str)
                 .unwrap_or_default(),
         ),
+        DaemonEvent::CapabilityRegistration(payload) => EventOrderKey::new(
+            payload.registered_at,
+            12,
+            payload.harness.adapter_id.as_str(),
+            payload
+                .agent_session_id
+                .as_ref()
+                .map(SessionId::as_str)
+                .unwrap_or_default(),
+        ),
     };
 
     key.with_tie_breaker(event)
@@ -870,6 +880,7 @@ fn event_worktree_id(event: &DaemonEvent) -> &WorktreeId {
         DaemonEvent::CompactIntent(payload) => &payload.worktree_id,
         DaemonEvent::VcsStateChanged(payload) => &payload.worktree_id,
         DaemonEvent::AdapterHeartbeat(payload) => &payload.worktree_id,
+        DaemonEvent::CapabilityRegistration(payload) => &payload.worktree_id,
     }
 }
 

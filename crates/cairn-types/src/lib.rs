@@ -318,6 +318,7 @@ pub enum DaemonEventKind {
     CompactIntent,
     VcsStateChanged,
     AdapterHeartbeat,
+    CapabilityRegistration,
 }
 
 /// Error type for `cairn-types` validation failures.

@@ -14,7 +14,7 @@ cairn-storage = { workspace = true }
 cairn-daemon-client = { workspace = true }
 cairn-identity = { workspace = true }
 cairn-config = { workspace = true }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

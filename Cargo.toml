@@ -51,6 +51,9 @@ thiserror = "2"
 anyhow = "1"
 # Test-only: hermetic temp directories for fixtures.
 tempfile = "3"
+# Durable storage: bundled SQLite (compiled from source) for the WAL event log and
+# the daemon lease DB. Pinned once here; cairn-storage and cairn-daemon inherit.
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 # Lint posture is decided once and inherited by every crate via `[lints] workspace =
 # true`, so a worker's lighter local clippy run can't drift from the orchestrator's
