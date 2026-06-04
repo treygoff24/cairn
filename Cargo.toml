@@ -7,6 +7,13 @@ members = [
     "crates/cairn-file",
     "crates/cairn-vcs",
     "crates/cairn-app",
+    # Wave 1.2 — storage, protocol, daemon core.
+    "crates/cairn-protocol",
+    "crates/cairn-storage",
+    "crates/cairn-daemon-client",
+    "crates/cairn-daemon",
+    "crates/cairn-cli",
+    "crates/cairn-harness-sim",
 ]
 
 [workspace.package]
@@ -22,8 +29,15 @@ authors = ["Trey Goff"]
 # table conflict, and the content-hash crate is a load-bearing identity choice, not
 # a per-worker default). New shared deps are added here by the orchestrator only.
 [workspace.dependencies]
-# Internal crates.
+# Internal crates. Path deps wiring the Wave 1.2 dependency DAG are added here by
+# the orchestrator; Wave 1.2 workers inherit them but do not add new shared entries.
 cairn-types = { path = "crates/cairn-types" }
+cairn-config = { path = "crates/cairn-config" }
+cairn-identity = { path = "crates/cairn-identity" }
+cairn-protocol = { path = "crates/cairn-protocol" }
+cairn-storage = { path = "crates/cairn-storage" }
+cairn-daemon-client = { path = "crates/cairn-daemon-client" }
+cairn-daemon = { path = "crates/cairn-daemon" }
 # Serialization — the daemon's event log, protocol envelopes, and config are serde.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -1,0 +1,16 @@
+[package]
+name = "cairn-protocol"
+description = "Daemon wire protocol: event envelopes and decision types for Cairn."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+cairn-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

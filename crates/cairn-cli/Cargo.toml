@@ -1,0 +1,17 @@
+[package]
+name = "cairn-cli"
+description = "Operator commands for Cairn: `cairn status` and `cairn daemon doctor`."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+cairn-protocol = { workspace = true }
+cairn-daemon-client = { workspace = true }
+cairn-types = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
