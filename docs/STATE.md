@@ -4,7 +4,9 @@ A living document of what's happening, what's in flight, and what's next. Update
 
 ---
 
-## Current state (2026-06-01)
+## Current state (2026-06-04)
+
+**Wave 1.2 COMPLETE — storage, protocol, daemon core (2026-06-04).** Six crates (`cairn-protocol`, `cairn-storage`, `cairn-daemon-client`, `cairn-daemon`, `cairn-cli`, `cairn-harness-sim`) built by a single Codex run against an orchestrator-frozen wave-internal contract (`EventLog`/`DaemonClient` traits, `DaemonEvent`/`DaemonDecision`, `EventId`). The contract was frozen in the working tree rather than a separate prelude commit, so contract + impl landed together at `a4fc583`. A six-lane independent review (grok=daemon, cursor=daemon-client+protocol, deepseek-flash=cli, orchestrator=storage+harness-sim; the slow droid lanes deepseek-pro/glm/gemini flaked on capture/timeout and were recovered) found one real bug plus robustness/consistency items, fixed by a Codex work-mode round at `3294511`. Gate green: fmt + clippy `--all-targets` clean, **174 tests** (109 Wave 1.1 intact + 65 Wave 1.2). Headline fixes: socket-path unification (client `/tmp/cairn` vs daemon `XDG_RUNTIME_DIR/cairn` mismatch could launch a second daemon — now one shared `socket_path_for_key`/`default_socket_dir`), `protocol_version` consolidated to the envelope level + validated on replay, redaction no longer round-trips through typed deserialize (was an event-drop risk), wire naming aligned to spec Appendix B (`session_id`→`agent_session_id`, `adapter`→`harness`). All pushed to `origin/main`. Reviewers cleared the daemon split-brain/lease logic (grok: ship) and confirmed no capability over-claim in the CLI.
 
 **Build is a go.** After a frank "is this LLM psychosis?" gut-check this session — V1 ground-truthed as real (878 tests verified by running it), spec red-teamed, and the competitive landscape checked — the decision is to build. Key finding: the substrate (graph/index/ledger) is now commoditized by a shipping product, **vexp** (local-first Rust daemon, MCP, advisory staleness, freemium closed-source). Cairn's defensible daylight is the **push-mode hooks layer** (deterministic context injection + edit interception, already proven in V1) — which vexp structurally lacks — plus enforcement and multi-agent coordination. See `cairn-vs-vexp.html` / `vexp-deep-dive.html` (untracked analysis artifacts).
 
@@ -41,17 +43,22 @@ Remote: `github.com/treygoff24/cairn.git`. All commits pushed through `db75ef6`.
 
 Wave 0 (tracer bullet) is done and green, and **Patch Round 2 is applied** (`docs/Cairn Implementation Plan — Patch Round 2.md`): Cairn reframed as a **superset of vexp** (match the substrate because the moat's precision rides on it, then add the push-mode/enforcement/coordination moat — do NOT thin the substrate), V1 narrowed to a **TS + Python vertical slice**, peripheral crates (web, p0beta, bridges, most frameworks, federation/leases/broadcasts, metrics gym) deferred out of the V1 critical path, and a **cry-wolf precision gate** (self-edit false-positive < 0.5%, §3) pulled forward as an early hard milestone reusing the tracer rig.
 
-**Immediate next step: Wave 1.2 — storage, protocol, daemon core** (plan §4 Wave 1.2). Six tasks: `cairn-storage` (append-only event log, monotonic IDs, WAL, credential redaction), `cairn-protocol` (daemon event + decision envelopes), `cairn-daemon-client` (connect-or-launch, fail-open), `cairn-daemon` (single-instance lifecycle, lease, heartbeat, stale-lease recovery), `cairn-cli` (status + doctor), `cairn-harness-sim` (Phase 1 daemon fixture). Before fan-out, the orchestrator commits the Wave 1.2 wave-internal contract (trait skeletons for `EventLog`, `DaemonEvent`/`DaemonDecision` enum shells with the 12 envelope variants stubbed, `DaemonClient` trait) per the plan. Same loop: contract → fan-out → integrate → gate once → independent review.
+**Immediate next step: Wave 1.3 — Phase 1 integration and acceptance** (plan §4 Wave 1.3). App wiring, capability registration, V1 corpus inventory, Phase 1 stress tests, and the **Phase 1 event-log golden fixture freeze**. Same loop: contract → fan-out → integrate → gate once → independent review.
 
-Carry-forward note for Wave 1.2: the event log is the spinal cord — freeze the Phase 1 event-log golden fixture at the Wave 1.3 boundary. `cairn-storage`/`cairn-protocol` consume the frozen `cairn-types` `DaemonEventKind` + envelopes; `Timestamp` is a JS-safe string on the wire; hashes validate on deserialize.
+Carry-forwards into Wave 1.3 (from the Wave 1.2 review):
+- **The golden fixture freezes the wire/log shapes** — freeze the *post-fix* shapes: `agent_session_id`/`harness` naming, single envelope-level `protocol_version`, redacted-JSON-persisted-directly. `Timestamp` is a JS-safe string on the wire; hashes validate on deserialize.
+- **`protocol_version` validation is strict-equal-to-current** — replaying an event written under a different version errors (`ProtocolVersionMismatch`). Correct for Phase 1 (v1 only); a protocol bump later needs an old-version-replay/migration story. The fixture is v1.
+- **`cairn-app` is still an empty stub** — the daemon-client launcher cannot actually start a daemon until the `cairn` binary implements `daemon serve`. Wiring that is Wave 1.3 work, and unblocks the launcher end-to-end.
+- **Promote `rusqlite` to `[workspace.dependencies]`** — pinned identically (0.32 bundled) in `cairn-storage` + `cairn-daemon`; single-source the pin.
+- **Module-split desloppify pass** — every Wave 1.2 crate is one large single-file `lib.rs` (daemon ~1.9k, protocol ~1.7k, client ~1.4k); run `desloppify-deep` at the Phase 1 boundary.
 
-Then: Wave 1.3 (app wiring, capability registration, V1 corpus inventory, Phase 1 stress tests + golden fixture) closes Phase 1 → Phase 2 ledgers + direct freshness → thin real Claude hook adapter (brought forward) → **cry-wolf precision gate** → minimal TS+Python graph → dependency staleness → initial MCP tools. That's the vertical slice.
+Then: Phase 1 closes → Phase 2 ledgers + direct freshness → thin real Claude hook adapter (brought forward) → **cry-wolf precision gate** → minimal TS+Python graph → dependency staleness → initial MCP tools. That's the vertical slice.
 
 Open process questions: license (AGPL vs MIT — unset in `Cargo.toml`); branch/PR workflow vs direct-to-main (currently direct-to-main, pushed).
 
 ## In flight
 
-Nothing executing. Wave 1.1 fully landed (green + reviewed + fixed, pushed `db75ef6`). Ready to start Wave 1.2.
+Nothing executing. Wave 1.2 fully landed (green `a4fc583` + reviewed + fixed `3294511`, pushed). Ready to start Wave 1.3.
 
 ## Decisions waiting on Trey (non-blocking)
 
@@ -64,7 +71,7 @@ Nothing executing. Wave 1.1 fully landed (green + reviewed + fixed, pushed `db75
 | Phase | Status | Notes |
 |---|---|---|
 | Planning | Complete | Plan + Patch Round 1 applied; build decision confirmed |
-| 1. Identity substrate | In progress | Wave 1.0 premortem ✓; Wave 1.1 ✓ (5 crates green + independently reviewed + fixed, `db75ef6`, 109 tests); Wave 1.2 (storage/protocol/daemon) next; Wave 1.3 (integration + golden fixture) after |
+| 1. Identity substrate | In progress | Wave 1.0 premortem ✓; Wave 1.1 ✓ (5 crates, `db75ef6`, 109 tests); Wave 1.2 ✓ (6 crates green `a4fc583` + reviewed + fixed `3294511`, 174 tests total); Wave 1.3 (integration + golden fixture) next, closes Phase 1 |
 | 2. ObservationLedger + EditLedger + direct freshness | Not started | |
 | 3. ContextFrame ledger + scheduler skeleton | Not started | |
 | 4. Minimal graph (P0-α languages) | Not started | |
