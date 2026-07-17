@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Cairn — design tokens
+   See DESIGN_CONTEXT.md for the why behind every value.
+   All neutrals are tinted warm (hue 60-80) so the page reads as printed
+   on paper. The single accent is oxide/rust; the live-signal accent is ember.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Surfaces & ink */
+  --color-paper-warm:        oklch(0.97 0.012 80);
+  --color-paper-shade:       oklch(0.94 0.014 78);
+  --color-paper-deeper:      oklch(0.91 0.016 76);
+  --color-ink-deep:          oklch(0.20 0.018 60);
+  --color-ink-muted:         oklch(0.45 0.018 60);
+  --color-ink-faint:         oklch(0.50 0.015 65);
+  --color-border-warm:       oklch(0.85 0.018 75);
+  --color-rule-warm:         oklch(0.74 0.020 75);
+
+  /* Accents */
+  --color-oxide:             oklch(0.51 0.14 35);   /* darkened to clear AA contrast on paper-shade */
+  --color-oxide-deep:        oklch(0.40 0.14 35);
+  --color-ember:             oklch(0.52 0.13 70);   /* AA-safe for small live-signal labels */
+
+  /* Inverted surface (terminals, code blocks, dark moments) */
+  --color-surface-dark:      oklch(0.22 0.018 60);
+  --color-surface-dark-fg:   oklch(0.92 0.014 78);
+  --color-surface-dark-rust: oklch(0.66 0.13 35);
+  --color-surface-dark-rule: oklch(0.34 0.018 60);
+
+  /* Type families — bound to next/font CSS variables defined in layout.tsx */
+  --font-display: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-body:    var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-archaic: var(--font-im-fell), "Iowan Old Style", Georgia, serif;
+  --font-mono:    var(--font-jetbrains), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Type scale — fixed rem, slightly larger than default for archaeological patience */
+  --text-xs:    0.75rem;
+  --text-sm:    0.875rem;
+  --text-base:  1.0625rem;   /* 17px */
+  --text-lg:    1.25rem;     /* 20px */
+  --text-xl:    1.5rem;      /* 24px */
+  --text-2xl:   2rem;        /* 32px */
+  --text-3xl:   2.5rem;      /* 40px */
+  --text-4xl:   3rem;        /* 48px */
+  --text-5xl:   3.75rem;     /* 60px */
+  --text-6xl:   4.75rem;     /* 76px */
+  --text-hero:  clamp(3.5rem, 8vw, 6.5rem);
+
+  /* Line heights */
+  --leading-tight:  1.1;
+  --leading-snug:   1.25;
+  --leading-normal: 1.45;
+  --leading-relaxed: 1.65;   /* body — patient, archaeological */
+  --leading-loose:  1.85;
+
+  /* Spacing — extends Tailwind defaults */
+  --spacing-section-y: clamp(5rem, 9vw, 9rem);
+  --spacing-gutter:    clamp(1.5rem, 4vw, 4rem);
+
+  /* Container width */
+  --container-content: 76rem;       /* 1216px — primary text column area */
+  --container-wide:    88rem;       /* 1408px — for cutaways/diagrams      */
+}
+
+/* Page baseline */
+html, body {
+  background: var(--color-paper-warm);
+  color: var(--color-ink-deep);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  font-feature-settings: "ss01", "ss02", "kern";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Display headings */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: var(--leading-tight);
+  color: var(--color-ink-deep);
+}
+
+/* Archaic accent face for pull-quotes and ledes when explicitly opted in */
+.archaic {
+  font-family: var(--font-archaic);
+  font-feature-settings: "kern", "liga";
+}
+
+/* Selection — paper-marker yellow tinted toward our oxide hue */
+::selection {
+  background: oklch(0.84 0.12 75 / 0.55);
+  color: var(--color-ink-deep);
+}
+
+/* Focus rings — oxide, not blue */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-oxide);
+  outline-offset: 3px;
+  border-radius: 1px;
+}
+
+/* Topographic ground texture — quiet, behind everything.
+   A scalable SVG-based contour fragment, opacity low enough to register only
+   as paper grain. Background-attachment: fixed creates a faint parallax
+   illusion as the page scrolls; reduced-motion users get scroll-anchored
+   ground instead so nothing feels in motion. */
+.ground-topo {
+  background-image:
+    radial-gradient(at 18% 12%, oklch(0.95 0.020 75 / 0.65) 0%, transparent 38%),
+    radial-gradient(at 82% 88%, oklch(0.95 0.020 75 / 0.55) 0%, transparent 42%),
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0px,
+      transparent 22px,
+      oklch(0.85 0.018 75 / 0.08) 22px,
+      oklch(0.85 0.018 75 / 0.08) 23px
+    );
+  background-attachment: fixed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ground-topo {
+    background-attachment: scroll;
+  }
+}
+
+/* Reduced motion — flatten everything that moves */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* IM Fell DW Pica reads very textured — use the SC (small caps) variant for
+   labels via this helper, falls back gracefully */
+.smallcaps {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+}
