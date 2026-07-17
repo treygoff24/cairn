@@ -6,7 +6,7 @@ This file overrides and extends the global `CLAUDE.md` for work inside this repo
 
 Cairn is a greenfield Rust rewrite of Code Briefcase (V1, Python). The V1 product was named "Code Briefcase" and lives at `~/Code/code-briefcase`; it is retained as behavior spec plus acceptance test corpus (878 tests). The V2 rewrite was renamed to **Cairn** mid-planning — same product trajectory, cleaner name. This repo is the V2/Cairn build.
 
-Until the implementation plan lands from GPT-5.5 Pro, this repo is documentation-only. No Rust code yet. The cargo workspace, crate layout, and first wave of implementation tasks will all be defined by the implementation plan.
+The implementation plan has landed and the Rust workspace is under active development. Use `docs/STATE.md` for the current wave and gate status.
 
 ## The design pin
 
@@ -25,7 +25,8 @@ The spec's §14 ("The one non-obvious design choice") restates this in full when
 3. **`docs/Cairn Final Specification.md`** — binding architecture and feature spec. Two appendices: A (build-order phasing) and B (schema reference) are load-bearing.
 4. **`docs/Cairn Implementation Plan.md`** — Pro's full 30-wave implementation plan, with Patch Round 1 applied.
 5. **`docs/Cairn Implementation Plan — Patch Round 1.md`** and **`docs/Cairn Implementation Plan — Patch Round 1 Decisions.md`** — the patch round and Pro's adjudication, kept as decision log.
-6. **`docs/history/`** — decision-rationale archive (Pro language-decision conversation, spec review round 2). Written before the rename — references "Code Briefcase" / "Briefcase" throughout.
+6. **`docs/Cairn Implementation Plan — Patch Round 2.md`** — the current vertical-slice sequencing and vexp-superset amendment.
+7. **`docs/history/`** — decision-rationale archive (Pro language-decision conversation, spec review round 2). Written before the rename — references "Code Briefcase" / "Briefcase" throughout.
 
 ## How we build
 
@@ -94,7 +95,7 @@ State this discipline explicitly in every worker brief. Workers should report "I
 - Never `git add -A` or `git add .` — stage files by exact name.
 - Never force-push, never `--no-verify`, never `--amend` to "fix" a failed pre-commit hook (the commit didn't happen; create a new one).
 - The orchestrator owns commits and stashes during a wave. Workers do not commit unless explicitly authorized in their brief.
-- No remote yet. Repo will get pushed to `github.com/treygoff24/cairn` (TBC) once Trey sets it up.
+- Remote: `github.com/treygoff24/cairn`.
 
 ## V1 reference
 
@@ -106,7 +107,7 @@ The V1 Python repo at `~/Code/code-briefcase` is the behavior spec.
 
 ## Current phase
 
-The implementation plan has landed and Patch Round 1 is applied. The plan lives at `docs/Cairn Implementation Plan.md`. The next step is Wave 1.0 (Phase 1 foundation-risk premortem, orchestrator-owned, no worker fan-out), then the Wave 1.1 bootstrap prelude commit (workspace skeleton + empty crate dirs + compile-only stubs), then the six-worker Wave 1.1 dispatch per the plan's §5.
+Phase 1 is in progress. Waves 1.1 and 1.2 are complete; Wave 1.3 (Phase 1 integration and acceptance) is next. Read `docs/STATE.md` before acting because it is the canonical live status.
 
 When resuming work in a new session, read STATE.md first to find the current wave, then jump to the matching wave header in the implementation plan.
 
