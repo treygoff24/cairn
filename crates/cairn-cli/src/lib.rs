@@ -8,7 +8,9 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use cairn_daemon_client::{DaemonClient, DaemonClientError, DaemonStatusReport, LocalDaemonClient};
-use cairn_protocol::{AdapterHeartbeat, AdapterKind, AdapterRef, DaemonDecision, DaemonEvent};
+use cairn_protocol::{
+    AdapterHeartbeat, AdapterKind, AdapterRef, DaemonDecision, DaemonEvent, DegradedState,
+};
 use cairn_types::{AdapterCapabilities, ConfigHash, ProtocolVersion, Timestamp, WorktreeId};
 use serde_json::{Value, json};
 
@@ -150,7 +152,7 @@ impl DaemonStatusClient for LocalDaemonClient {
 pub struct CommandReport {
     pub command: &'static str,
     pub snapshot: StatusSnapshot,
-    pub degraded: DegradedState,
+    pub degraded: Option<DegradedState>,
     pub self_test: Option<SelfTestState>,
 }
 
@@ -167,46 +169,11 @@ impl CommandReport {
             },
             "daemon_generation": self.snapshot.daemon_generation,
             "storage_path": self.snapshot.storage_path.as_ref().map(|path| path_string(path)),
-            "degraded": self.degraded.is_degraded,
-            "fail_open": self.degraded.fail_open,
-            "degraded_reason": self.degraded.reason,
+            "degraded": self.degraded.is_some(),
+            "fail_open": self.degraded.as_ref().is_some_and(|state| state.fail_open),
+            "degraded_reason": self.degraded.as_ref().map(|state| &state.reason),
             "self_test": self.self_test.map(SelfTestState::as_str),
         })
-    }
-}
-
-/// Whether the daemon path was reachable enough for the host to trust Cairn's
-/// advisory status. Client-side degraded errors are fail-open; daemon-reported
-/// degraded decisions preserve the daemon's explicit `fail_open` flag.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DegradedState {
-    pub is_degraded: bool,
-    pub fail_open: bool,
-    pub reason: Option<String>,
-}
-
-impl DegradedState {
-    #[must_use]
-    pub fn healthy() -> Self {
-        Self {
-            is_degraded: false,
-            fail_open: false,
-            reason: None,
-        }
-    }
-
-    #[must_use]
-    pub fn degraded(reason: impl Into<String>) -> Self {
-        Self::degraded_with_fail_open(reason, true)
-    }
-
-    #[must_use]
-    pub fn degraded_with_fail_open(reason: impl Into<String>, fail_open: bool) -> Self {
-        Self {
-            is_degraded: true,
-            fail_open,
-            reason: Some(reason.into()),
-        }
     }
 }
 
@@ -281,7 +248,7 @@ where
     let probe = probe_daemon(context);
     let self_test = match command {
         Command::Status { .. } => None,
-        Command::DaemonDoctor { .. } => Some(if probe.degraded.is_degraded {
+        Command::DaemonDoctor { .. } => Some(if probe.degraded.is_some() {
             SelfTestState::Degraded
         } else {
             SelfTestState::Ok
@@ -397,7 +364,7 @@ fn parse_json_flag(args: &[String]) -> Result<OutputFormat, ParseError> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DaemonProbe {
     snapshot: StatusSnapshot,
-    degraded: DegradedState,
+    degraded: Option<DegradedState>,
 }
 
 fn probe_daemon<C>(context: &CommandContext<'_, C>) -> DaemonProbe
@@ -408,7 +375,7 @@ where
     if let Err(error) = client.connect_or_launch() {
         return DaemonProbe {
             snapshot: context.snapshot.clone(),
-            degraded: degraded_error(error),
+            degraded: Some(degraded_error(error)),
         };
     }
 
@@ -417,13 +384,13 @@ where
             let degraded = report
                 .degraded_reason
                 .as_deref()
-                .map_or_else(DegradedState::healthy, DegradedState::degraded);
+                .map(DegradedState::degraded);
             (
                 StatusSnapshot::from_daemon_report(context.snapshot.identity.clone(), &report),
                 degraded,
             )
         }
-        Err(error) => (context.snapshot.clone(), degraded_error(error)),
+        Err(error) => (context.snapshot.clone(), Some(degraded_error(error))),
     };
 
     let heartbeat = heartbeat_event(&snapshot);
@@ -431,10 +398,10 @@ where
     match client.send_event(&heartbeat) {
         Ok(decision) => {
             if let Some(decision_degraded) = degraded_decision(&decision) {
-                degraded = decision_degraded;
+                degraded = Some(decision_degraded);
             }
         }
-        Err(error) => degraded = degraded_error(error),
+        Err(error) => degraded = Some(degraded_error(error)),
     }
 
     DaemonProbe { snapshot, degraded }
@@ -458,12 +425,10 @@ fn heartbeat_event(snapshot: &StatusSnapshot) -> DaemonEvent {
 }
 
 fn degraded_decision(decision: &DaemonDecision) -> Option<DegradedState> {
-    decision.degraded.as_ref().map(|degraded| {
-        DegradedState::degraded_with_fail_open(
-            degraded.state.reason.clone(),
-            degraded.state.fail_open,
-        )
-    })
+    decision
+        .degraded
+        .as_ref()
+        .map(|degraded| degraded.state.clone())
 }
 
 fn degraded_error(error: DaemonClientError) -> DegradedState {
@@ -528,11 +493,11 @@ where
         .as_ref()
         .map_or_else(|| "unknown".to_owned(), |path| path_string(path));
     writeln!(writer, "storage_path: {storage_path}")?;
-    writeln!(writer, "degraded: {}", yes_no(report.degraded.is_degraded))?;
+    writeln!(writer, "degraded: {}", yes_no(report.degraded.is_some()))?;
 
-    if let Some(reason) = report.degraded.reason.as_deref() {
-        writeln!(writer, "fail_open: {}", yes_no(report.degraded.fail_open))?;
-        writeln!(writer, "degraded_reason: {reason}")?;
+    if let Some(degraded) = &report.degraded {
+        writeln!(writer, "fail_open: {}", yes_no(degraded.fail_open))?;
+        writeln!(writer, "degraded_reason: {}", degraded.reason)?;
     }
 
     if let Some(self_test) = report.self_test {

@@ -76,68 +76,52 @@ impl DaemonGenerationId {
     }
 }
 
-/// A content digest. Cairn content-addresses file contents with **BLAKE3** —
-/// fast on the read/edit hot path, cryptographic, and the algorithm the wider
-/// agent-tooling substrate already standardizes on. Stored here as the lowercase
-/// hex digest.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "String")]
-pub struct ContentHash(String);
+macro_rules! blake3_hash_type {
+    ($(#[$meta:meta])* $name:ident, $invalid:ident) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+        #[serde(try_from = "String")]
+        pub struct $name(String);
 
-impl ContentHash {
-    /// Wraps a precomputed lowercase-hex BLAKE3 digest. For trusted internal
-    /// construction from a freshly computed digest; deserialization from untrusted
-    /// input is validated via [`TryFrom<String>`].
-    pub fn from_hex(hex: impl Into<String>) -> Self {
-        Self(hex.into())
-    }
+        impl $name {
+            /// Wraps a precomputed lowercase-hex BLAKE3 digest from trusted
+            /// internal construction. Deserialization from untrusted input is
+            /// validated via [`TryFrom<String>`].
+            pub fn from_hex(hex: impl Into<String>) -> Self {
+                Self(hex.into())
+            }
 
-    pub fn as_hex(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for ContentHash {
-    type Error = TypeError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if is_blake3_hex(&value) {
-            Ok(Self(value))
-        } else {
-            Err(TypeError::InvalidContentHash(value))
+            pub fn as_hex(&self) -> &str {
+                &self.0
+            }
         }
-    }
-}
 
-/// Deterministic hash of the effective Cairn configuration. Computed by
-/// `cairn-config`, embedded in worktree identity by `cairn-identity`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "String")]
-pub struct ConfigHash(String);
+        impl TryFrom<String> for $name {
+            type Error = TypeError;
 
-impl ConfigHash {
-    /// Wraps a precomputed lowercase-hex config digest. For trusted internal
-    /// construction; deserialization from untrusted input is validated via
-    /// [`TryFrom<String>`].
-    pub fn from_hex(hex: impl Into<String>) -> Self {
-        Self(hex.into())
-    }
-
-    pub fn as_hex(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for ConfigHash {
-    type Error = TypeError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if is_blake3_hex(&value) {
-            Ok(Self(value))
-        } else {
-            Err(TypeError::InvalidConfigHash(value))
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                if is_blake3_hex(&value) {
+                    Ok(Self(value))
+                } else {
+                    Err(TypeError::$invalid(value))
+                }
+            }
         }
-    }
+    };
+}
+
+blake3_hash_type! {
+    /// A content digest. Cairn content-addresses file contents with **BLAKE3** —
+    /// fast on the read/edit hot path, cryptographic, and the algorithm the wider
+    /// agent-tooling substrate already standardizes on. Stored here as the lowercase
+    /// hex digest.
+    ContentHash, InvalidContentHash
+}
+
+blake3_hash_type! {
+    /// Deterministic hash of the effective Cairn configuration. Computed by
+    /// `cairn-config`, embedded in worktree identity by `cairn-identity`.
+    ConfigHash, InvalidConfigHash
 }
 
 /// A BLAKE3 digest is exactly 64 lowercase-hex characters (32 bytes). Used to

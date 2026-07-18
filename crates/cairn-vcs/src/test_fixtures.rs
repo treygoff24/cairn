@@ -16,8 +16,6 @@ const OID_PACKED: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const OID_FEATURE: &str = "cccccccccccccccccccccccccccccccccccccccc";
 const OID_OTHER: &str = "3333333333333333333333333333333333333333";
 
-/// Builds the named worktree fixture under a fresh tempdir and returns it. The
-/// tempdir's `path()` is the worktree root; the value must outlive the reads.
 pub(crate) fn build_fixture(name: &str) -> TempDir {
     let tmp = TempDir::new().expect("create tempdir");
     let root = tmp.path();
@@ -56,7 +54,6 @@ pub(crate) fn build_fixture(name: &str) -> TempDir {
             write(root, ".git/HEAD", &line(OID_DETACHED));
             write(root, ".git/MERGE_HEAD", &line(OID_OTHER));
         }
-        // `.git` dir exists but has no HEAD — must not panic.
         "partial" => {
             mkdir(root, ".git");
         }
@@ -70,7 +67,6 @@ pub(crate) fn build_fixture(name: &str) -> TempDir {
                 ),
             );
         }
-        // Linked worktree: `.git` is a gitfile; commondir points at the shared dir.
         "linked" => {
             write(root, ".git", "gitdir: main.git/worktrees/feature\n");
             write(

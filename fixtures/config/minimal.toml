@@ -1,2 +1,1 @@
-# Minimal Cairn configuration — only the required protocol_version field.
 protocol_version = 1

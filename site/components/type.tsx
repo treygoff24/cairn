@@ -2,10 +2,8 @@ import { clsx } from "clsx";
 import type { ReactNode } from "react";
 import type { StyledChildrenProps } from "@/components/shared-types";
 
-type DisplayHeaderProps = {
+type DisplayHeaderProps = StyledChildrenProps & {
   level: 1 | 2 | 3;
-  children: ReactNode;
-  className?: string;
   dark?: boolean;
   id?: string;
 };
@@ -34,7 +32,7 @@ export function Lede({
   children,
   className,
   dark = false,
-}: { children: ReactNode; className?: string; dark?: boolean }) {
+}: StyledChildrenProps & { dark?: boolean }) {
   return (
     <p
       className={clsx(
@@ -54,9 +52,7 @@ export function Prose({
   className,
   size = "base",
   dark = false,
-}: {
-  children: ReactNode;
-  className?: string;
+}: StyledChildrenProps & {
   size?: "base" | "lg";
   dark?: boolean;
 }) {
@@ -79,7 +75,7 @@ export function PullQuote({
   children,
   attribution,
   className,
-}: { children: ReactNode; attribution?: ReactNode; className?: string }) {
+}: StyledChildrenProps & { attribution?: ReactNode }) {
   return (
     <figure
       className={clsx(
@@ -107,9 +103,7 @@ export function SmallCaps({
   className,
   dark = false,
   tone = "muted",
-}: {
-  children: ReactNode;
-  className?: string;
+}: StyledChildrenProps & {
   dark?: boolean;
   tone?: "muted" | "faint" | "oxide" | "ember";
 }) {

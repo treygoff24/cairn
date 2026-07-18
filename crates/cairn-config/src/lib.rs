@@ -82,7 +82,6 @@ pub struct CairnConfig {
     /// Pinned wire-protocol version. Must match the daemon and all adapters.
     pub protocol_version: ProtocolVersion,
 
-    /// Enforcement mode.
     #[serde(default)]
     pub mode: CairnMode,
 
@@ -94,11 +93,9 @@ pub struct CairnConfig {
     #[serde(default)]
     pub project_name: Option<String>,
 
-    /// Optional capability flags.
     #[serde(default)]
     pub features: FeatureFlags,
 
-    /// Subsystem ablation flags.
     #[serde(default)]
     pub ablation: AblationFlags,
 }
@@ -161,11 +158,7 @@ pub enum ConfigError {
 ///
 /// Unknown top-level keys are silently stripped (forward compatibility).
 pub fn load_str(toml_str: &str) -> Result<CairnConfig, ConfigError> {
-    let raw: toml::Value = toml::from_str(toml_str)?;
-    let mut table = match raw {
-        toml::Value::Table(t) => t,
-        _ => return Err(ConfigError::Validation("top-level must be a table".into())),
-    };
+    let mut table: toml::Table = toml::from_str(toml_str)?;
     strip_unknown_keys(&mut table);
 
     // Nested keys still pass through each section's `deny_unknown_fields` check.

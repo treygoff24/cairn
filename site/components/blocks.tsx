@@ -1,12 +1,13 @@
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
 import { Content, Hairline } from "@/components/layout";
+import type { StyledChildrenProps } from "@/components/shared-types";
 
 export function SpecBlock({
   title,
   children,
   className,
-}: { title?: string; children: ReactNode; className?: string }) {
+}: StyledChildrenProps & { title?: string }) {
   return (
     <div
       className={clsx(
@@ -34,7 +35,7 @@ export function Cli({
   children,
   className,
   label = "operator console",
-}: { children: ReactNode; className?: string; label?: string }) {
+}: StyledChildrenProps & { label?: string }) {
   return (
     <div
       className={clsx(
@@ -88,7 +89,6 @@ export function Marker({
         </svg>
       );
     case "cairn":
-    default:
       return (
         <svg viewBox="0 0 16 16" width="1em" height="1em" className={cls} aria-hidden>
           <ellipse cx="8" cy="12.2" rx="5.5" ry="1.8" fill="currentColor" />

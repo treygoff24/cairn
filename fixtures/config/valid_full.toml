@@ -1,4 +1,3 @@
-# Full valid Cairn configuration — all fields specified.
 protocol_version = 1
 mode = "default"
 

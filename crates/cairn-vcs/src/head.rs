@@ -118,8 +118,6 @@ mod tests {
     use crate::test_fixtures::build_fixture;
     use tempfile::TempDir;
 
-    /// Builds a fixture and resolves its dirs; the `TempDir` must be kept alive
-    /// by the caller for the duration of the reads.
     fn dirs_fixture(name: &str) -> (TempDir, GitDirs) {
         let tmp = build_fixture(name);
         let dirs = resolve_git_dirs(tmp.path()).unwrap().expect("repo");

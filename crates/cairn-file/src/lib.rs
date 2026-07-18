@@ -482,7 +482,7 @@ mod tests {
     fn streaming_works_for_larger_file() {
         let dir = td();
         let path = dir.path().join("large.bin");
-        // 2 MiB — exercises streaming buffer loop
+        // Exceeds the 64 KiB read buffer to exercise multiple streaming updates.
         let data = {
             let mut v = Vec::with_capacity(2 * 1024 * 1024);
             let mut rng: u64 = 0x_dead_beef_cafe_babe;
@@ -881,9 +881,6 @@ mod tests {
 
     #[test]
     fn mtime_is_not_used_for_freshness() {
-        // Verifies the design invariant: we never compare mtime to decide
-        // staleness. Identical content has the same hash regardless of
-        // different mtimes.
         let dir = td();
 
         let path_a = dir.path().join("version_a.txt");

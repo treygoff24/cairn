@@ -2,11 +2,10 @@ import { clsx } from "clsx";
 import type { ReactNode } from "react";
 import type { StyledChildrenProps } from "@/components/shared-types";
 
-type SectionProps = {
+type SectionProps = StyledChildrenProps & {
   id?: string;
   numeral: string;
   label: string;
-  children: ReactNode;
   /**
    * Optional ground class override. Most sections use the inherited
    * topographic background; some (the dark architecture cutaway, for
@@ -18,7 +17,6 @@ type SectionProps = {
    * numeral and label itself.
    */
   plate?: ReactNode;
-  className?: string;
 };
 
 const groundClass = {

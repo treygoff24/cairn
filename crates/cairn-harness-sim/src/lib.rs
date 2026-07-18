@@ -205,7 +205,7 @@ impl Phase1DaemonFixture {
     }
 }
 
-pub fn deterministic_client_specs(
+fn deterministic_client_specs(
     client_count: usize,
     capabilities: AdapterCapabilities,
 ) -> Result<Vec<SimulatedClientSpec>, HarnessError> {
@@ -412,10 +412,9 @@ impl LaunchReport {
 
         match generations.len() {
             0 => Err(HarnessError::NoDaemonGeneration),
-            1 => generations
+            1 => Ok(*generations
                 .first()
-                .copied()
-                .ok_or(HarnessError::NoDaemonGeneration),
+                .expect("a set with length one has a first element")),
             _ => Err(HarnessError::MultipleDaemonGenerations(
                 generations.into_iter().collect(),
             )),

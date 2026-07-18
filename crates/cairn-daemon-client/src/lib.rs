@@ -81,26 +81,23 @@ impl DaemonClientError {
     pub fn degradation(&self, since: Timestamp) -> DaemonClientDegradation {
         DaemonClientDegradation {
             kind: self.kind(),
-            reason: self.degradation_reason(),
-            fail_open: self.is_fail_open(),
-            since,
+            state: DegradedState {
+                reason: self.degradation_reason(),
+                fail_open: self.is_fail_open(),
+                since,
+            },
         }
     }
 
     #[must_use]
     pub fn degraded_state(&self, since: Timestamp) -> DegradedState {
-        let degradation = self.degradation(since);
-        DegradedState {
-            reason: degradation.reason,
-            fail_open: degradation.fail_open,
-            since: degradation.since,
-        }
+        self.degradation(since).state
     }
 
     #[must_use]
     pub fn degraded_decision(&self) -> DaemonDecision {
-        let degradation = self.degradation(Timestamp::now());
-        DaemonDecision::degraded_allow(degradation.reason, degradation.since)
+        let state = self.degraded_state(Timestamp::now());
+        DaemonDecision::degraded_allow(state.reason, state.since)
     }
 }
 
@@ -117,9 +114,16 @@ pub enum DaemonClientErrorKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DaemonClientDegradation {
     pub kind: DaemonClientErrorKind,
-    pub reason: String,
-    pub fail_open: bool,
-    pub since: Timestamp,
+    #[serde(flatten)]
+    pub state: DegradedState,
+}
+
+impl std::ops::Deref for DaemonClientDegradation {
+    type Target = DegradedState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
 }
 
 /// A client that discovers (or launches) the single daemon for a worktree and ships

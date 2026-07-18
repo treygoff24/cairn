@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 
 use crate::error::VcsError;
 
-/// Resolved git metadata directories for one worktree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct GitDirs {
     /// Per-worktree git directory (`HEAD`, rebase state, …).
@@ -104,7 +103,6 @@ fn normalize_lexical(path: &Path) -> PathBuf {
     out
 }
 
-/// Returns `true` when `name` exists as a file or directory under `dir`.
 pub(crate) fn marker_present(dir: &Path, name: &str) -> bool {
     let path = dir.join(name);
     path.is_file() || path.is_dir()

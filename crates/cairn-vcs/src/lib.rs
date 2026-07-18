@@ -107,7 +107,6 @@ mod capture_tests {
     use crate::test_fixtures::build_fixture;
 
     fn capture_fixture(name: &str) -> RepoEpoch {
-        // The tempdir stays alive until after `capture` finishes reading it.
         let tmp = build_fixture(name);
         capture(
             tmp.path(),

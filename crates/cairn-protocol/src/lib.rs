@@ -425,27 +425,12 @@ pub struct DegradedState {
 
 impl DegradedState {
     #[must_use]
-    pub fn healthy() -> Self {
-        Self {
-            reason: String::new(),
-            fail_open: false,
-            since: Timestamp(0),
-        }
-    }
-
-    #[must_use]
     pub fn degraded(reason: impl Into<String>) -> Self {
         Self {
             reason: reason.into(),
             fail_open: true,
             since: Timestamp(0),
         }
-    }
-
-    #[must_use]
-    pub fn with_since(mut self, since: Timestamp) -> Self {
-        self.since = since;
-        self
     }
 }
 
