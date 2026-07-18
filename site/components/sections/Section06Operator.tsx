@@ -1,5 +1,5 @@
 import { Section, Content, Wide } from "@/components/layout";
-import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
+import { DisplayHeader, Lede, Prose, Mono, PullQuote, SubsectionLabel } from "@/components/type";
 import { Cli, NextSection } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 
@@ -44,10 +44,7 @@ export function Section06Operator() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>6.1 — the two commands that matter most</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>6.1 — the two commands that matter most</SubsectionLabel>
 
         <Prose className="mt-6">
           Out of the dozen-plus commands in the operator surface, two carry
@@ -95,10 +92,7 @@ export function Section06Operator() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>6.2 — the full command set</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>6.2 — the full command set</SubsectionLabel>
 
         <div className="mt-8 grid lg:grid-cols-2 gap-x-12 gap-y-2 font-mono text-sm">
           <CmdRow cmd="cairn status"                  note="daemon, watchers, sessions, fingerprint coverage" />
@@ -118,10 +112,7 @@ export function Section06Operator() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>6.3 — planned P1 flight recorder concept</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>6.3 — planned P1 flight recorder concept</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Multi-agent timelines are spatial.
         </h3>

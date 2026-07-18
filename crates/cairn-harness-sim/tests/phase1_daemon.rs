@@ -1,7 +1,7 @@
 use cairn_daemon_client::DaemonClient;
 use cairn_harness_sim::{
-    FIRST_DAEMON_GENERATION, HarnessError, LaunchReport, Phase1DaemonFixture, SimulatedClientSpec,
-    observing_capabilities,
+    FIRST_DAEMON_GENERATION, HarnessError, LaunchReport, Phase1DaemonFixture, SimulatedClient,
+    SimulatedClientSpec, observing_capabilities,
 };
 use cairn_protocol::{
     AdapterKind, AdapterRef, Confidence, DaemonDecision, DaemonDecisionKind, DaemonEvent,
@@ -163,13 +163,7 @@ fn custom_client_specs_record_distinct_capability_sets() {
 fn snapshot_supports_phase2_custom_events_without_relaunching() {
     let worktree = tempdir().expect("temp worktree should be created");
     let capabilities = observing_capabilities();
-    let fixture = Phase1DaemonFixture::with_n_clients(worktree.path(), 1, capabilities)
-        .expect("fixture clients should be valid");
-    let client = fixture
-        .simulated_clients()
-        .into_iter()
-        .next()
-        .expect("one simulated client should be present");
+    let (fixture, client) = single_client_fixture(worktree.path(), capabilities);
 
     client
         .connect_or_launch()
@@ -210,13 +204,7 @@ fn snapshot_supports_phase2_custom_events_without_relaunching() {
 fn custom_events_for_other_worktrees_are_rejected() {
     let worktree = tempdir().expect("temp worktree should be created");
     let capabilities = observing_capabilities();
-    let fixture = Phase1DaemonFixture::with_n_clients(worktree.path(), 1, capabilities)
-        .expect("fixture clients should be valid");
-    let client = fixture
-        .simulated_clients()
-        .into_iter()
-        .next()
-        .expect("one simulated client should be present");
+    let (_fixture, client) = single_client_fixture(worktree.path(), capabilities);
 
     client
         .connect_or_launch()
@@ -257,6 +245,20 @@ fn duplicate_client_names_are_rejected_before_launch() {
 
 fn worktree_id_value(worktree_root: &std::path::Path) -> String {
     format!("harness-sim:{}", worktree_root.display())
+}
+
+fn single_client_fixture(
+    worktree_root: &std::path::Path,
+    capabilities: AdapterCapabilities,
+) -> (Phase1DaemonFixture, SimulatedClient) {
+    let fixture = Phase1DaemonFixture::with_n_clients(worktree_root, 1, capabilities)
+        .expect("fixture clients should be valid");
+    let client = fixture
+        .simulated_clients()
+        .into_iter()
+        .next()
+        .expect("one simulated client should be present");
+    (fixture, client)
 }
 
 fn assert_capabilities_and_heartbeats(

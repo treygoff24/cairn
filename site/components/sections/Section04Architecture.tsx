@@ -1,5 +1,5 @@
 import { Section, Content, TwoColumn } from "@/components/layout";
-import { DisplayHeader, Lede, Prose, Mono, SmallCaps } from "@/components/type";
+import { DisplayHeader, Lede, Prose, Mono, SubsectionLabel } from "@/components/type";
 import { NextSection, SpecBlock } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 import { ArchitectureLayers } from "@/components/diagrams/ArchitectureLayers";
@@ -41,10 +41,7 @@ export function Section04Architecture() {
       </div>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>4.1 — the spine</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>4.1 — the spine</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           A single Rust daemon, fenced per worktree.
         </h3>
@@ -66,10 +63,7 @@ export function Section04Architecture() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>4.2 — three layers, one truth</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>4.2 — three layers, one truth</SubsectionLabel>
 
         <TwoColumn
           ratio="5/7"
@@ -106,10 +100,7 @@ export function Section04Architecture() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>4.3 — MCP is an adapter, not the substrate</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>4.3 — MCP is an adapter, not the substrate</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           One spine. Many doors.
         </h3>
@@ -149,10 +140,7 @@ can_attach_file_precondition   // ← TOCTOU eligibility lives here`}
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>4.4 — push for timing, pull for depth</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>4.4 — push for timing, pull for depth</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Delivery is proven. Precision is the gate.
         </h3>
@@ -167,10 +155,7 @@ can_attach_file_precondition   // ← TOCTOU eligibility lives here`}
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>4.5 — incremental, wrapped</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>4.5 — incremental, wrapped</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Salsa lives behind one crate seam.
         </h3>

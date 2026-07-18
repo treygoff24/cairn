@@ -988,6 +988,44 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn serve_response(
+        path: &Path,
+        response: DaemonClientResponse,
+    ) -> thread::JoinHandle<DaemonClientRequest> {
+        use std::os::unix::net::UnixListener;
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("socket parent should be created");
+        }
+        let listener = UnixListener::bind(path).expect("listener should bind");
+
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("client should connect");
+            let mut reader = BufReader::new(stream);
+            let mut request_line = String::new();
+            reader
+                .read_line(&mut request_line)
+                .expect("request should read");
+            let request = serde_json::from_str(&request_line).expect("request should decode");
+
+            let mut stream = reader.into_inner();
+            serde_json::to_writer(&mut stream, &response).expect("response should encode");
+            stream.write_all(b"\n").expect("response newline writes");
+            request
+        })
+    }
+
+    #[cfg(unix)]
+    fn request_client(root: &Path) -> LocalDaemonClient {
+        LocalDaemonClient::with_launcher(
+            identity(root, 'a'),
+            DaemonClientConfig::new(root.join("s")),
+            Arc::new(CountingLauncher::default()),
+        )
+        .expect("client builds")
+    }
+
+    #[cfg(unix)]
     fn fast_config(socket_dir: impl Into<PathBuf>) -> DaemonClientConfig {
         DaemonClientConfig {
             socket_dir: socket_dir.into(),
@@ -1175,52 +1213,26 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn request_status_round_trips_over_json_line_socket() {
-        use std::os::unix::net::UnixListener;
-
         let root = unique_temp_dir("status-roundtrip");
-        let identity = identity(&root, 'a');
-        let socket_dir = root.join("s");
-        fs::create_dir_all(&socket_dir).expect("socket dir should be created");
-        let client = LocalDaemonClient::with_launcher(
-            identity,
-            DaemonClientConfig::new(&socket_dir),
-            Arc::new(CountingLauncher::default()),
-        )
-        .expect("client builds");
+        let client = request_client(&root);
         let report = DaemonStatusReport {
             generation_id: Some("gen-status".to_owned()),
             storage_path: Some(root.join("cairn.sqlite")),
             degraded_reason: None,
         };
 
-        let listener = UnixListener::bind(client.socket().path()).expect("listener binds");
-        let expected_report = report.clone();
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("client should connect");
-            let mut reader = BufReader::new(stream);
-            let mut request_line = String::new();
-            reader
-                .read_line(&mut request_line)
-                .expect("request should read");
-            let request: DaemonClientRequest =
-                serde_json::from_str(&request_line).expect("request should decode");
-            assert!(matches!(request, DaemonClientRequest::Status { .. }));
-
-            let mut stream = reader.into_inner();
-            serde_json::to_writer(
-                &mut stream,
-                &DaemonClientResponse::Status(Box::new(expected_report)),
-            )
-            .expect("status response should encode");
-            stream.write_all(b"\n").expect("response newline writes");
-        });
+        let server = serve_response(
+            client.socket().path(),
+            DaemonClientResponse::Status(Box::new(report.clone())),
+        );
 
         let received = client
             .request_status()
             .expect("status should receive daemon report");
+        let request = server.join().expect("server should finish");
 
         assert_eq!(received, report);
-        server.join().expect("server should finish");
+        assert!(matches!(request, DaemonClientRequest::Status { .. }));
         fs::remove_dir_all(root).expect("temp root should clean up");
     }
 
@@ -1259,41 +1271,15 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn degraded_event_response_becomes_fail_open_decision() {
-        use std::os::unix::net::UnixListener;
-
         let root = unique_temp_dir("degraded-event");
-        let identity = identity(&root, 'a');
-        let socket_dir = root.join("s");
-        fs::create_dir_all(&socket_dir).expect("socket dir should be created");
-        let client = LocalDaemonClient::with_launcher(
-            identity,
-            DaemonClientConfig::new(&socket_dir),
-            Arc::new(CountingLauncher::default()),
-        )
-        .expect("client builds");
+        let client = request_client(&root);
 
-        let listener = UnixListener::bind(client.socket().path()).expect("listener binds");
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("client should connect");
-            let mut reader = BufReader::new(stream);
-            let mut request_line = String::new();
-            reader
-                .read_line(&mut request_line)
-                .expect("request should read");
-            let request: DaemonClientRequest =
-                serde_json::from_str(&request_line).expect("request should decode");
-            assert!(matches!(request, DaemonClientRequest::Event { .. }));
-
-            let mut stream = reader.into_inner();
-            serde_json::to_writer(
-                &mut stream,
-                &DaemonClientResponse::Degraded {
-                    reason: "storage warming up".to_owned(),
-                },
-            )
-            .expect("response should encode");
-            stream.write_all(b"\n").expect("response newline writes");
-        });
+        let server = serve_response(
+            client.socket().path(),
+            DaemonClientResponse::Degraded {
+                reason: "storage warming up".to_owned(),
+            },
+        );
 
         let decision = client
             .send_event(&heartbeat_event(&client))
@@ -1301,10 +1287,11 @@ mod tests {
         let degraded = decision
             .degraded
             .expect("decision should carry degraded metadata");
+        let request = server.join().expect("server should finish");
 
         assert!(degraded.state.fail_open);
         assert_eq!(degraded.state.reason, "storage warming up");
-        server.join().expect("server should finish");
+        assert!(matches!(request, DaemonClientRequest::Event { .. }));
         fs::remove_dir_all(root).expect("temp root should clean up");
     }
 
@@ -1355,42 +1342,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn send_event_round_trips_a_decision() {
-        use std::os::unix::net::UnixListener;
-
         let root = unique_temp_dir("roundtrip");
-        let identity = identity(&root, 'a');
-        let socket_dir = root.join("s");
-        fs::create_dir_all(&socket_dir).expect("socket dir should be created");
-        let config = DaemonClientConfig::new(&socket_dir);
-        let client = LocalDaemonClient::with_launcher(
-            identity,
-            config,
-            Arc::new(CountingLauncher::default()),
-        )
-        .expect("client builds");
+        let client = request_client(&root);
 
-        let listener = UnixListener::bind(client.socket().path()).expect("listener binds");
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("client should connect");
-            let mut reader = BufReader::new(stream);
-            let mut request_line = String::new();
-            reader
-                .read_line(&mut request_line)
-                .expect("request should read");
-            let request: DaemonClientRequest =
-                serde_json::from_str(&request_line).expect("request should decode");
-
-            let mut stream = reader.into_inner();
-            serde_json::to_writer(
-                &mut stream,
-                &DaemonClientResponse::Decision(Box::new(DaemonDecision::allow(
-                    Confidence::Verified,
-                ))),
-            )
-            .expect("response should encode");
-            stream.write_all(b"\n").expect("response newline writes");
-            request
-        });
+        let server = serve_response(
+            client.socket().path(),
+            DaemonClientResponse::Decision(Box::new(DaemonDecision::allow(Confidence::Verified))),
+        );
 
         let decision = client
             .send_event(&heartbeat_event(&client))

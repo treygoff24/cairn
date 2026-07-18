@@ -1,5 +1,5 @@
 import { Section, Content, TwoColumn } from "@/components/layout";
-import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
+import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps, SubsectionLabel } from "@/components/type";
 import { NextSection, SpecBlock } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 import { LedgerStack } from "@/components/diagrams/LedgerStack";
@@ -48,10 +48,7 @@ export function Section03Mechanism() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>3.1 — the primitive</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>3.1 — the primitive</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Every supported read writes an Observation.
         </h3>
@@ -103,10 +100,7 @@ export function Section03Mechanism() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>3.2 — two fingerprints, not one</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>3.2 — two fingerprints, not one</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Hard denies need a hard reason.
         </h3>

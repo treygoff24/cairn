@@ -1,5 +1,5 @@
 import { Section, Content, TwoColumn, Hairline } from "@/components/layout";
-import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
+import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps, SubsectionLabel } from "@/components/type";
 import { NextSection, SpecBlock, StatLine } from "@/components/blocks";
 
 export function Section07Validation() {
@@ -24,10 +24,7 @@ export function Section07Validation() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>7.1 — verified agent throughput</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>7.1 — verified agent throughput</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Cost-weighted. Success-gated. Coordination-multiplied.
         </h3>
@@ -76,10 +73,7 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
       </Content>
 
       <Content className="mt-24">
-        <div className="flex items-center gap-4">
-          <SmallCaps>7.2 — the floors that refuse a release</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>7.2 — the floors that refuse a release</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           VAT can improve and we still ship nothing.
         </h3>
@@ -107,10 +101,7 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
       </Content>
 
       <Content className="mt-24">
-        <div className="flex items-center gap-4">
-          <SmallCaps>7.3 — the deferred autonomous loop</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>7.3 — the deferred autonomous loop</SubsectionLabel>
 
         <TwoColumn
           ratio="5/7"

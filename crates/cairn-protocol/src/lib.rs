@@ -1100,18 +1100,7 @@ mod tests {
 
     #[test]
     fn deny_and_override_payloads_roundtrip() {
-        let deny = DenyDecision {
-            deny_id: Some("deny-1".into()),
-            severity: DenySeverity::Hard,
-            message: "target file changed since last read".into(),
-            target_file: Some(PathBuf::from("src/lib.rs")),
-            current_target_version: Some(file_version("file-1", "src/lib.rs", "epoch-2")),
-            stale_observation_versions: vec![file_version("file-1", "src/lib.rs", "epoch-1")],
-            dependency_causes: vec!["src/main.rs changed".into()],
-            minimum_revalidation_set: vec![reread_instruction()],
-            proof_available: true,
-            override_policy: OverridePolicy::RationaleRequired,
-        };
+        let deny = sample_deny();
         let json = serde_json::to_string(&deny).expect("deny decision should serialize");
         let back: DenyDecision =
             serde_json::from_str(&json).expect("deny decision should deserialize");
@@ -1434,22 +1423,26 @@ mod tests {
 
     fn sample_deny_decision() -> DaemonDecision {
         DaemonDecision::deny(
-            DenyDecision {
-                deny_id: Some("deny-1".into()),
-                severity: DenySeverity::Hard,
-                message: "target file changed since last read".into(),
-                target_file: Some(PathBuf::from("src/lib.rs")),
-                current_target_version: Some(file_version("file-1", "src/lib.rs", "epoch-2")),
-                stale_observation_versions: vec![file_version("file-1", "src/lib.rs", "epoch-1")],
-                dependency_causes: vec!["src/main.rs changed".into()],
-                minimum_revalidation_set: vec![reread_instruction()],
-                proof_available: true,
-                override_policy: OverridePolicy::RationaleRequired,
-            },
+            sample_deny(),
             vec![reread_instruction()],
             Confidence::Verified,
         )
         .with_expires_at(timestamp())
+    }
+
+    fn sample_deny() -> DenyDecision {
+        DenyDecision {
+            deny_id: Some("deny-1".into()),
+            severity: DenySeverity::Hard,
+            message: "target file changed since last read".into(),
+            target_file: Some(PathBuf::from("src/lib.rs")),
+            current_target_version: Some(file_version("file-1", "src/lib.rs", "epoch-2")),
+            stale_observation_versions: vec![file_version("file-1", "src/lib.rs", "epoch-1")],
+            dependency_causes: vec!["src/main.rs changed".into()],
+            minimum_revalidation_set: vec![reread_instruction()],
+            proof_available: true,
+            override_policy: OverridePolicy::RationaleRequired,
+        }
     }
 
     fn sample_advisory_decision() -> DaemonDecision {

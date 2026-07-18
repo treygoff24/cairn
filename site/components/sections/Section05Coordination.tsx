@@ -1,5 +1,5 @@
 import { Section, Content, TwoColumn } from "@/components/layout";
-import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
+import { DisplayHeader, Lede, Prose, Mono, PullQuote, SubsectionLabel } from "@/components/type";
 import { NextSection, SpecBlock } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 import { TimelineLanes } from "@/components/diagrams/TimelineLanes";
@@ -43,10 +43,7 @@ export function Section05Coordination() {
       </div>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>5.1 — three modes, one check</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>5.1 — three modes, one check</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Enforce when you can. Advise otherwise.
         </h3>
@@ -81,10 +78,7 @@ export function Section05Coordination() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>5.2 — the precondition closes the race</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>5.2 — the precondition closes the race</SubsectionLabel>
 
         <TwoColumn
           ratio="5/7"
@@ -135,10 +129,7 @@ export function Section05Coordination() {
       </Content>
 
       <Content className="mt-20">
-        <div className="flex items-center gap-4">
-          <SmallCaps>5.3 — subagent inheritance, lineage-aware</SmallCaps>
-          <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
-        </div>
+        <SubsectionLabel>5.3 — subagent inheritance, lineage-aware</SubsectionLabel>
         <h3 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-deep">
           Children get a snapshot. Parents don&apos;t auto-learn back.
         </h3>

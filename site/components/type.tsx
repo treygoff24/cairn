@@ -129,6 +129,15 @@ export function SmallCaps({
   );
 }
 
+export function SubsectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-4">
+      <SmallCaps>{children}</SmallCaps>
+      <span className="h-px flex-1 bg-rule-warm/60" aria-hidden />
+    </div>
+  );
+}
+
 export function Mono({
   children,
   className,

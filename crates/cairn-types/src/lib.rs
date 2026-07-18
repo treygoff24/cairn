@@ -309,80 +309,62 @@ pub enum TypeError {
 mod tests {
     use super::*;
 
+    fn assert_json_roundtrip<T>(value: T)
+    where
+        T: serde::Serialize + serde::de::DeserializeOwned + std::fmt::Debug + PartialEq,
+    {
+        let json = serde_json::to_string(&value).unwrap();
+        let back = serde_json::from_str(&json).unwrap();
+        assert_eq!(value, back);
+    }
+
     #[test]
     fn content_hash_roundtrip() {
-        let h = ContentHash::from_hex(
+        assert_json_roundtrip(ContentHash::from_hex(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        );
-        let json = serde_json::to_string(&h).unwrap();
-        let back: ContentHash = serde_json::from_str(&json).unwrap();
-        assert_eq!(h, back);
+        ));
     }
 
     #[test]
     fn config_hash_roundtrip() {
-        let h = ConfigHash::from_hex(
+        assert_json_roundtrip(ConfigHash::from_hex(
             "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-        );
-        let json = serde_json::to_string(&h).unwrap();
-        let back: ConfigHash = serde_json::from_str(&json).unwrap();
-        assert_eq!(h, back);
+        ));
     }
 
     #[test]
     fn protocol_version_roundtrip() {
-        let v = ProtocolVersion(7);
-        let json = serde_json::to_string(&v).unwrap();
-        let back: ProtocolVersion = serde_json::from_str(&json).unwrap();
-        assert_eq!(v, back);
+        assert_json_roundtrip(ProtocolVersion(7));
     }
 
     #[test]
     fn timestamp_roundtrip() {
-        let ts = Timestamp(1_700_000_000_000_000_000);
-        let json = serde_json::to_string(&ts).unwrap();
-        let back: Timestamp = serde_json::from_str(&json).unwrap();
-        assert_eq!(ts, back);
+        assert_json_roundtrip(Timestamp(1_700_000_000_000_000_000));
     }
 
     #[test]
     fn file_id_roundtrip() {
-        let id = FileId::new("file-42");
-        let json = serde_json::to_string(&id).unwrap();
-        let back: FileId = serde_json::from_str(&json).unwrap();
-        assert_eq!(id, back);
+        assert_json_roundtrip(FileId::new("file-42"));
     }
 
     #[test]
     fn worktree_id_roundtrip() {
-        let id = WorktreeId::new("wt-1");
-        let json = serde_json::to_string(&id).unwrap();
-        let back: WorktreeId = serde_json::from_str(&json).unwrap();
-        assert_eq!(id, back);
+        assert_json_roundtrip(WorktreeId::new("wt-1"));
     }
 
     #[test]
     fn repo_epoch_id_roundtrip() {
-        let id = RepoEpochId::new("epoch-9");
-        let json = serde_json::to_string(&id).unwrap();
-        let back: RepoEpochId = serde_json::from_str(&json).unwrap();
-        assert_eq!(id, back);
+        assert_json_roundtrip(RepoEpochId::new("epoch-9"));
     }
 
     #[test]
     fn git_common_dir_id_roundtrip() {
-        let id = GitCommonDirId::new("git-dir");
-        let json = serde_json::to_string(&id).unwrap();
-        let back: GitCommonDirId = serde_json::from_str(&json).unwrap();
-        assert_eq!(id, back);
+        assert_json_roundtrip(GitCommonDirId::new("git-dir"));
     }
 
     #[test]
     fn session_id_roundtrip() {
-        let id = SessionId::new("sess-xyz");
-        let json = serde_json::to_string(&id).unwrap();
-        let back: SessionId = serde_json::from_str(&json).unwrap();
-        assert_eq!(id, back);
+        assert_json_roundtrip(SessionId::new("sess-xyz"));
     }
 
     #[test]
