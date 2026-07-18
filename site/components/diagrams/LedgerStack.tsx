@@ -1,12 +1,9 @@
-/* Ledger stack diagram — a vertical timeline of observation rows for a
-   single session, with one row marked stale by an oxide accent dot. */
-
 export function LedgerStack() {
   const rows = [
     { t: "09:14:02", file: "app/auth/route.ts",  ver: "a3f1", live: true  },
     { t: "09:14:08", file: "lib/session.ts",     ver: "8c12", live: true  },
     { t: "09:14:11", file: "lib/types.ts",       ver: "44ee", live: true  },
-    { t: "09:14:14", file: "app/auth/route.ts",  ver: "a3f1", live: false },  // ← stale (overwritten)
+    { t: "09:14:14", file: "app/auth/route.ts",  ver: "a3f1", live: false },
     { t: "09:14:16", file: "tests/auth.test.ts", ver: "21bd", live: true  },
     { t: "09:14:19", file: "lib/db.ts",          ver: "9f0a", live: true  },
     { t: "09:14:22", file: "lib/session.ts",     ver: "8c12", live: true  },

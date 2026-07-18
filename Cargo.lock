@@ -85,7 +85,6 @@ dependencies = [
  "cairn-daemon-client",
  "cairn-identity",
  "cairn-protocol",
- "cairn-storage",
  "cairn-types",
  "rusqlite",
  "serde",
@@ -113,7 +112,6 @@ version = "0.0.0"
 dependencies = [
  "blake3",
  "cairn-types",
- "serde_json",
  "tempfile",
  "thiserror",
 ]
@@ -153,7 +151,6 @@ dependencies = [
  "cairn-protocol",
  "cairn-types",
  "rusqlite",
- "serde",
  "serde_json",
  "tempfile",
  "thiserror",

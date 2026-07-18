@@ -47,7 +47,6 @@ export function Section03Mechanism() {
         </Prose>
       </Content>
 
-      {/* The primitive */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>3.1 — the primitive</SmallCaps>
@@ -89,14 +88,12 @@ export function Section03Mechanism() {
         </Prose>
       </Content>
 
-      {/* The visual */}
       <div className="mt-20" style={{ paddingInline: "var(--spacing-gutter)" }}>
         <div className="mx-auto" style={{ maxWidth: "var(--container-content)" }}>
           <LedgerStack />
         </div>
       </div>
 
-      {/* The pull quote — the design pin restated in archaic voice */}
       <Content className="mt-12">
         <PullQuote attribution="— the design pin, restated">
           A graph without an observation ledger is a clever librarian shouting
@@ -105,7 +102,6 @@ export function Section03Mechanism() {
         </PullQuote>
       </Content>
 
-      {/* The fingerprint distinction */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>3.2 — two fingerprints, not one</SmallCaps>

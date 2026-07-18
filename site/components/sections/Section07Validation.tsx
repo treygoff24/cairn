@@ -23,7 +23,6 @@ export function Section07Validation() {
         </p>
       </Content>
 
-      {/* VAT */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>7.1 — verified agent throughput</SmallCaps>
@@ -65,7 +64,6 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
         </Prose>
       </Content>
 
-      {/* Coordination multiplier */}
       <Content className="mt-16">
         <SmallCaps tone="ember">coordination_multiplier</SmallCaps>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-x-6 gap-y-4">
@@ -77,7 +75,6 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
         </div>
       </Content>
 
-      {/* Floor conditions */}
       <Content className="mt-24">
         <div className="flex items-center gap-4">
           <SmallCaps>7.2 — the floors that refuse a release</SmallCaps>
@@ -109,7 +106,6 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
         </div>
       </Content>
 
-      {/* Auto-research loop */}
       <Content className="mt-24">
         <div className="flex items-center gap-4">
           <SmallCaps>7.3 — the deferred autonomous loop</SmallCaps>
@@ -145,7 +141,6 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
         />
       </Content>
 
-      {/* Headline stat band */}
       <Content className="mt-20">
         <Hairline />
         <div className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-x-10 gap-y-8">

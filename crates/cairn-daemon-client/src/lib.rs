@@ -1,7 +1,7 @@
 //! `cairn-daemon-client` — the connect-or-launch client used by adapters and the CLI.
 //!
-//! Sync by design for Phase 1: adapters call this on latency-sensitive hook paths,
-//! so this crate does not depend on an async runtime. Every public operation returns
+//! Sync by design: adapters call this on latency-sensitive hook paths, so this
+//! crate does not depend on an async runtime. Every public operation returns
 //! a degraded [`DaemonClientError`] instead of panicking; callers fail open and keep
 //! the host agent moving when the daemon is unavailable.
 
@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use cairn_identity::{IdentityError, WorktreeIdentity};
 use cairn_protocol::{DaemonDecision, DaemonEvent, DegradedState};
-use cairn_types::{ConfigHash, ProtocolVersion, Timestamp};
+use cairn_types::{ConfigHash, ProtocolVersion, Timestamp, WorktreeId};
 use serde::{Deserialize, Serialize};
 
 /// Conservative Unix-domain socket path limit for macOS (`sockaddr_un.sun_path`).
@@ -190,9 +190,9 @@ impl DaemonIdentity {
         DaemonClientHello {
             identity_key: self.socket_key.clone(),
             canonical_root: self.worktree.canonical_root.clone(),
-            worktree_id: self.worktree.worktree_id.as_str().to_owned(),
+            worktree_id: self.worktree.worktree_id.clone(),
             config_hash: self.worktree.config_hash.as_hex().to_owned(),
-            protocol_version: self.worktree.protocol_version.0,
+            protocol_version: self.worktree.protocol_version,
         }
     }
 }
@@ -202,9 +202,9 @@ impl DaemonIdentity {
 pub struct DaemonClientHello {
     pub identity_key: String,
     pub canonical_root: PathBuf,
-    pub worktree_id: String,
+    pub worktree_id: WorktreeId,
     pub config_hash: String,
-    pub protocol_version: u32,
+    pub protocol_version: ProtocolVersion,
 }
 
 /// Unix socket path derived from a full daemon identity.
@@ -259,7 +259,7 @@ pub struct DaemonClientConfig {
 }
 
 impl DaemonClientConfig {
-    /// Uses `socket_dir` with the default Phase 1 hook-path deadlines.
+    /// Uses `socket_dir` with the default hook-path deadlines.
     #[must_use]
     pub fn new(socket_dir: impl Into<PathBuf>) -> Self {
         Self {
@@ -305,7 +305,7 @@ pub struct DaemonStatusReport {
     pub degraded_reason: Option<String>,
 }
 
-/// JSON-line request sent over the Phase 1 Unix-socket client protocol.
+/// JSON-line request sent over the Unix-socket client protocol.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DaemonClientRequest {
@@ -1052,9 +1052,9 @@ mod tests {
             hello.canonical_root.as_path(),
             worktree.canonical_root.as_path()
         );
-        assert_eq!(hello.worktree_id, worktree.worktree_id.as_str());
+        assert_eq!(hello.worktree_id, worktree.worktree_id);
         assert_eq!(hello.config_hash, worktree.config_hash.as_hex());
-        assert_eq!(hello.protocol_version, worktree.protocol_version.0);
+        assert_eq!(hello.protocol_version, worktree.protocol_version);
 
         fs::remove_dir_all(root).expect("temp root should clean up");
     }

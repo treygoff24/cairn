@@ -1,30 +1,9 @@
 //! `cairn-types` — shared domain types and typed IDs for the Cairn daemon.
 //!
-//! # Scope: Phase 1 identity substrate ONLY
-//!
-//! This crate is the workspace's type floor. Wave 1.1 Tasks 3–6 (`cairn-config`,
-//! `cairn-identity`, `cairn-file`, `cairn-vcs`) **consume** the types defined here
-//! rather than redefining their own. The names and shapes below are the *frozen
-//! contract*: the orchestrator commits them before the Wave 1.1 fan-out so six
-//! parallel workers cannot diverge on what (for example) `SourceClass` or
-//! `RepoEpochId` mean. Wave 1.1 Task 2 (the `cairn-types` owner) fleshes out
-//! serde derives, `Display`, validation, and round-trip tests, and may refine an
-//! inner representation — but does not rename or reshape these public items.
-//!
-//! # Deferred — do NOT author these in Phase 1
-//!
-//! The following spec Appendix B entities belong to later phases. Introducing
-//! them here would pull downstream concepts into the identity floor:
-//!
-//! - `Observation` / `InheritedObservation` (Phase 2 ledgers). Note these carry a
-//!   `graph_version` field — `GraphVersion` is a **Phase 4 / `cairn-graph`**
-//!   concept and must not be defined in `cairn-types` during Phase 1.
-//! - `ContextFrame`, `Task`, `CompactionCheckpoint`, `PreCompactSurvivalPacket`
-//!   (Phase 3 context).
-//! - `SurfaceItem` (Phase 4 graph).
-//! - `DaemonDecision`, `DenyDecision`, `OverrideDeny` (Phase 5 decisions).
-//! - The full `DaemonEvent` envelope structs (Wave 1.2 `cairn-protocol`). Only the
-//!   event-*kind* discriminant ([`DaemonEventKind`]) lives here.
+//! This crate is the workspace's type floor. Shared IDs and discriminants live
+//! here so crates cannot diverge on their wire shapes. Ledger, graph, decision,
+//! and full protocol structs stay in their owning crates to keep this dependency
+//! floor acyclic.
 
 use std::{
     path::PathBuf,
@@ -36,9 +15,8 @@ use thiserror::Error;
 
 /// Defines a string-newtype ID with a uniform constructor and accessor.
 ///
-/// The inner representation is an implementation detail Task 2 may refine (for
-/// example to a fixed-size byte array); the public type *name* is the frozen
-/// contract that consumer crates build against.
+/// The private inner representation lets IDs evolve without changing consumer
+/// APIs.
 macro_rules! id_type {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
@@ -80,10 +58,22 @@ id_type! {
     SessionId
 }
 
+/// Monotonic, log-assigned identifier for an appended event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct EventId(pub u64);
+
+impl EventId {
+    /// Returns the raw numeric event id.
+    #[must_use]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+}
+
 /// A content digest. Cairn content-addresses file contents with **BLAKE3** —
 /// fast on the read/edit hot path, cryptographic, and the algorithm the wider
 /// agent-tooling substrate already standardizes on. Stored here as the lowercase
-/// hex digest; Task 2 may switch the inner representation to a `[u8; 32]`.
+/// hex digest.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String")]
 pub struct ContentHash(String);
@@ -159,8 +149,8 @@ fn is_blake3_hex(s: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ProtocolVersion(pub u32);
 
-/// A wall-clock observation timestamp. The inner unit (Task 2 finalizes) is
-/// nanoseconds since the Unix epoch, UTC. This is recorded for diagnostics and
+/// A wall-clock observation timestamp in nanoseconds since the Unix epoch, UTC.
+/// This is recorded for diagnostics and
 /// ordering — it MUST NOT drive freshness decisions, which are content-hash
 /// based (see `cairn-file`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -210,8 +200,8 @@ pub enum OperationState {
     UnknownVcs,
 }
 
-/// Coarse classification of a file's role (spec Appendix B). Drives later
-/// extraction and decoration policy; the initial heuristics live in `cairn-file`.
+/// Coarse classification of a file's role (spec Appendix B).
+/// Classification heuristics live in `cairn-file`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceClass {
@@ -283,9 +273,7 @@ pub struct RepoEpoch {
 
 /// What an adapter can do, registered with the daemon (spec Appendix B bitset).
 ///
-/// Modeled as named booleans (serde-trivial, self-documenting); the compact wire
-/// encoding is Task 2's call. Phase 1 only records these — the enforcement paths
-/// that read them arrive in Phase 5.
+/// Modeled as named booleans to keep serialization explicit and self-documenting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AdapterCapabilities {
     pub can_pre_edit_block: bool,
@@ -300,9 +288,8 @@ pub struct AdapterCapabilities {
     pub can_attach_file_precondition: bool,
 }
 
-/// Discriminant of a daemon event kind (spec Appendix B). The full envelope
-/// structs are authored in Wave 1.2 `cairn-protocol`; only this kind tag is the
-/// shared `cairn-types` contract.
+/// Shared discriminant for daemon events whose full envelopes live in
+/// `cairn-protocol`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DaemonEventKind {
@@ -514,8 +501,6 @@ mod tests {
 
     #[test]
     fn timestamp_serializes_as_string_for_js_safety() {
-        // Must be a JSON string, not a number: nanosecond values exceed JS's
-        // safe-integer range and would silently lose precision as a number.
         let ts = Timestamp(1_700_000_000_000_000_000);
         assert_eq!(
             serde_json::to_string(&ts).unwrap(),
@@ -529,7 +514,6 @@ mod tests {
     fn content_and_config_hash_deserialization_validates() {
         let ok = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         assert!(serde_json::from_str::<ContentHash>(&format!("\"{ok}\"")).is_ok());
-        // Wrong length, uppercase, and non-hex are rejected.
         assert!(serde_json::from_str::<ContentHash>("\"abc\"").is_err());
         assert!(
             serde_json::from_str::<ContentHash>(&format!("\"{}\"", ok.to_uppercase())).is_err()

@@ -1,11 +1,7 @@
-/* Architecture layers diagram — three horizontal bands with the components
-   that live in each. Adapters / daemon / storage. Restrained, blueprint-ish. */
-
 export function ArchitectureLayers() {
   return (
     <figure className="my-12">
       <div className="border border-rule-warm bg-paper-warm overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-rule-warm/60 px-6 py-3">
           <span className="smallcaps tracking-[0.16em] text-sm text-ink-muted">
             cairn — one daemon per worktree
@@ -13,7 +9,6 @@ export function ArchitectureLayers() {
           <span className="font-mono text-xs text-ink-faint">cutaway</span>
         </div>
 
-        {/* Adapters band */}
         <Band
           label="adapters"
           sub="thin clients, harness-side"
@@ -26,7 +21,6 @@ export function ArchitectureLayers() {
         />
         <Connector label="typed local protocol  ·  versioned" />
 
-        {/* Daemon band — the spine */}
         <div className="bg-paper-shade border-y border-rule-warm/60 px-6 py-6">
           <div className="flex items-baseline justify-between mb-4">
             <span className="font-mono text-sm text-ink-deep">cairn-daemon</span>
@@ -46,7 +40,6 @@ export function ArchitectureLayers() {
         </div>
         <Connector label="content-hash addressed I/O" />
 
-        {/* Storage band */}
         <Band
           label="storage"
           sub="three layers, one truth"
@@ -57,7 +50,6 @@ export function ArchitectureLayers() {
           ]}
         />
 
-        {/* Footer */}
         <div className="border-t border-rule-warm/60 px-6 py-3 flex items-center justify-between">
           <span className="archaic italic text-sm text-ink-muted">
             identified by{" "}

@@ -3,8 +3,7 @@
 //! # Design invariants
 //!
 //! - **Content hash is the source of truth for freshness.** `mtime_observed` is
-//!   recorded for diagnostics only and must never drive a freshness decision (see
-//!   the Phase 1 foundation-risk premortem, risk 4).
+//!   recorded for diagnostics only and must never drive a freshness decision.
 //! - **Streaming hash.** File content is hashed via `blake3`'s streaming
 //!   `Hasher::update` API — large files never load entirely into memory.
 //! - **`file_id` is path-derived.** A `FileId` is deterministically derived from
@@ -38,10 +37,6 @@ pub enum FileError {
     #[error("invalid worktree-relative path {path}: {reason}")]
     InvalidRelativePath { path: PathBuf, reason: &'static str },
 }
-
-// ---------------------------------------------------------------------------
-// content hash (streaming blake3)
-// ---------------------------------------------------------------------------
 
 /// Stream the file at `path` through a `blake3::Hasher` and return the
 /// lowercase-hex digest as a [`ContentHash`].
@@ -134,10 +129,6 @@ fn os_str_bytes(value: &OsStr) -> Cow<'_, [u8]> {
     Cow::Borrowed(value.as_encoded_bytes())
 }
 
-// ---------------------------------------------------------------------------
-// file_id derivation
-// ---------------------------------------------------------------------------
-
 /// Derive a [`FileId`] from the worktree-relative path.
 ///
 /// # Rule
@@ -213,10 +204,6 @@ fn invalid_relative_path(relative_path: &Path, reason: &'static str) -> FileErro
     }
 }
 
-// ---------------------------------------------------------------------------
-// mtime observation (diagnostics only — no freshness decisions)
-// ---------------------------------------------------------------------------
-
 fn mtime_for(path: &Path) -> Result<Timestamp, FileError> {
     let metadata = std::fs::symlink_metadata(path).map_err(|e| FileError::Io {
         path: path.to_path_buf(),
@@ -236,10 +223,6 @@ fn mtime_for(path: &Path) -> Result<Timestamp, FileError> {
 
     Ok(Timestamp(nanos.as_nanos() as i64))
 }
-
-// ---------------------------------------------------------------------------
-// source-class classification
-// ---------------------------------------------------------------------------
 
 /// Classify a file by its worktree-relative path.
 ///
@@ -267,10 +250,8 @@ fn mtime_for(path: &Path) -> Result<Timestamp, FileError> {
 /// `.h`, `.cpp`, `.hpp`, `.cc`, `.java`, `.kt`, `.swift`, `.rb`, `.zig`,
 /// `.html`, `.css`, `.scss`, `.less`, `.md`, `.txt`).
 ///
-/// Unknown paths (no extension match) default to `Unknown`. These defaults are
-/// designed to be overridden later by explicit user config (`cairn-config`).
+/// Unknown paths (no extension match) default to `Unknown`.
 pub fn classify(relative_path: &Path) -> SourceClass {
-    // Collect path components for directory-matching rules.
     let components: Vec<&str> = relative_path
         .components()
         .filter_map(|c| {
@@ -281,7 +262,7 @@ pub fn classify(relative_path: &Path) -> SourceClass {
 
     let lower_components: Vec<String> = components.iter().map(|s| s.to_lowercase()).collect();
 
-    // Priority 1: vendored directories
+    // First match wins; keep this order aligned with the precedence table above.
     if lower_components
         .iter()
         .any(|c| c == "node_modules" || c == "vendor")
@@ -289,7 +270,6 @@ pub fn classify(relative_path: &Path) -> SourceClass {
         return SourceClass::Vendored;
     }
 
-    // Priority 2: build artifact directories
     if lower_components
         .iter()
         .any(|c| c == "target" || c == "dist" || c == "build")
@@ -297,36 +277,30 @@ pub fn classify(relative_path: &Path) -> SourceClass {
         return SourceClass::BuildArtifact;
     }
 
-    // Priority 3: test directories
     if lower_components.iter().any(|c| c == "tests" || c == "test") {
         return SourceClass::Test;
     }
 
-    // Priority 4: test file naming patterns
     if let Some(filename) = components.last()
         && is_test_filename(filename)
     {
         return SourceClass::Test;
     }
 
-    // Priority 5: lockfiles
     if let Some(filename) = components.last()
         && is_lockfile_basename(filename)
     {
         return SourceClass::Lockfile;
     }
 
-    // Priority 6: migrations directory
     if lower_components.iter().any(|c| c == "migrations") {
         return SourceClass::Migration;
     }
 
-    // Priority 7: fixtures directory
     if lower_components.iter().any(|c| c == "fixtures") {
         return SourceClass::Fixture;
     }
 
-    // Priority 8: config extensions
     if let Some(filename) = components.last() {
         let lower_name = filename.to_lowercase();
         if lower_name.ends_with(".toml")
@@ -338,21 +312,18 @@ pub fn classify(relative_path: &Path) -> SourceClass {
         }
     }
 
-    // Priority 9: generated extensions
     if let Some(filename) = components.last()
         && is_generated_extension(filename)
     {
         return SourceClass::Generated;
     }
 
-    // Priority 10: source extensions
     if let Some(filename) = components.last()
         && is_source_extension(filename)
     {
         return SourceClass::Source;
     }
 
-    // Priority 11: unknown
     SourceClass::Unknown
 }
 
@@ -426,10 +397,6 @@ fn is_source_extension(filename: &str) -> bool {
     source_exts.iter().any(|ext| lower.ends_with(ext))
 }
 
-// ---------------------------------------------------------------------------
-// FileVersion construction
-// ---------------------------------------------------------------------------
-
 /// Build a [`FileVersion`] from a worktree-relative path.
 ///
 /// `worktree_root` is the absolute root of the worktree — used to construct the
@@ -480,7 +447,6 @@ pub fn build_file_version(
 
     let mtime_observed = mtime_for(&absolute_path)?;
 
-    // Unix executable bit: any execute permission on the file.
     #[cfg(unix)]
     let executable_bit = {
         use std::os::unix::fs::PermissionsExt;
@@ -504,10 +470,6 @@ pub fn build_file_version(
     })
 }
 
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -515,10 +477,6 @@ mod tests {
     fn td() -> tempfile::TempDir {
         tempfile::tempdir().expect("failed to create temp dir")
     }
-
-    // ---------------------------------------------------------------
-    // content hash
-    // ---------------------------------------------------------------
 
     #[test]
     fn identical_content_produces_identical_hash() {
@@ -580,7 +538,7 @@ mod tests {
         let result = content_hash_path(Path::new("/nonexistent/cairn_test_file"));
         assert!(result.is_err());
         match result {
-            Err(FileError::Io { .. }) => {} // expected
+            Err(FileError::Io { .. }) => {}
             _ => panic!("expected Io error"),
         }
     }
@@ -622,10 +580,6 @@ mod tests {
             content_hash_bytes(b"missing-target.txt")
         );
     }
-
-    // ---------------------------------------------------------------
-    // file_id derivation
-    // ---------------------------------------------------------------
 
     #[test]
     fn file_id_is_deterministic() {
@@ -671,10 +625,6 @@ mod tests {
 
         assert!(matches!(result, Err(FileError::InvalidRelativePath { .. })));
     }
-
-    // ---------------------------------------------------------------
-    // source-class classification
-    // ---------------------------------------------------------------
 
     #[test]
     fn test_dir_is_test() {
@@ -843,10 +793,6 @@ mod tests {
         );
     }
 
-    // ---------------------------------------------------------------
-    // FileVersion construction
-    // ---------------------------------------------------------------
-
     fn make_epoch() -> RepoEpochId {
         RepoEpochId::new("test-epoch-001")
     }
@@ -963,7 +909,6 @@ mod tests {
 
         let fv = build_file_version(Path::new("mtime_test.txt"), dir.path(), make_epoch()).unwrap();
 
-        // mtime should be recent (positive nanoseconds since epoch)
         assert!(fv.mtime_observed.0 > 0);
     }
 
@@ -986,9 +931,7 @@ mod tests {
         let fv_b =
             build_file_version(Path::new("version_b.txt"), dir.path(), make_epoch()).unwrap();
 
-        // Same content → same hash. This is the freshness mechanism.
         assert_eq!(fv_a.content_hash, fv_b.content_hash);
-        // mtimes may differ — irrelevant for correctness.
     }
 
     #[test]
@@ -1011,8 +954,6 @@ mod tests {
 
     #[test]
     fn all_source_classes_have_test_coverage() {
-        // Enumerates every SourceClass variant to confirm the classify()
-        // function covers all variants at a path-to-class level.
         let test_cases: Vec<(SourceClass, &str)> = vec![
             (SourceClass::Source, "src/main.rs"),
             (SourceClass::Test, "tests/foo_test.rs"),

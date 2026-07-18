@@ -239,7 +239,11 @@ fn metadata_path_from_file(file: &Path, raw_path: &str) -> Result<PathBuf, Ident
     // Use only the first line: a `.git` gitfile or `commondir` file holds the path on
     // its first line, and trailing lines or junk must not bleed into the resolved
     // path (an embedded newline would otherwise become part of the path).
-    let trimmed_path = raw_path.lines().next().unwrap_or("").trim();
+    let trimmed_path = raw_path.lines().next().map(str::trim).ok_or_else(|| {
+        IdentityError::EmptyGitMetadataPath {
+            path: file.to_path_buf(),
+        }
+    })?;
     if trimmed_path.is_empty() {
         return Err(IdentityError::EmptyGitMetadataPath {
             path: file.to_path_buf(),
@@ -251,7 +255,9 @@ fn metadata_path_from_file(file: &Path, raw_path: &str) -> Result<PathBuf, Ident
         return Ok(path.to_path_buf());
     }
 
-    let base_dir = file.parent().unwrap_or_else(|| Path::new("."));
+    let base_dir = file
+        .parent()
+        .expect("git metadata files always have a parent directory");
     Ok(base_dir.join(path))
 }
 
@@ -804,8 +810,6 @@ mod tests {
 
     #[test]
     fn gitdir_pointer_uses_first_line_only() {
-        // A `.git` / commondir file polluted with trailing lines must not bleed junk
-        // into the resolved path — only the first line is honored.
         let resolved =
             metadata_path_from_file(Path::new("/repo/.git"), "subdir/git\nGARBAGE\nmore").unwrap();
         assert!(resolved.ends_with("subdir/git"), "got {resolved:?}");

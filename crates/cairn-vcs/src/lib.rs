@@ -1,7 +1,7 @@
 //! `cairn-vcs` — `RepoEpoch`: git operation-state capture.
 //!
 //! Reads `.git` metadata directly (no `git` subprocess, no libgit2). Suitable for the
-//! daemon hot path. Git object/index parsing is intentionally out of scope for Phase 1.
+//! daemon hot path. Git object/index parsing is not implemented.
 
 mod digest;
 mod error;
@@ -29,7 +29,7 @@ use operation::detect_operation_state;
 /// here). When `.git` is missing or not a repository, returns `Ok` with
 /// [`OperationState::UnknownVcs`] and `head_oid` / `branch_ref` set to `None`.
 ///
-/// `index_tree_oid` is always `None` in Phase 1 (binary index parsing requires a git library).
+/// `index_tree_oid` is always `None` because binary index parsing requires a git library.
 pub fn capture(
     worktree_root: &Path,
     worktree_id: WorktreeId,

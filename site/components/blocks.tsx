@@ -2,15 +2,6 @@ import Image from "next/image";
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Content blocks
-   - <Figure>    — image + caption + provenance line
-   - <SpecBlock> — schema / type definition on dark surface, mono
-   - <Cli>       — CLI / terminal sample on dark surface
-   - <Marker>    — small inline glyph (cairn, observation, edit)
-   - <StatLine>  — small numeric stat with label, mono
-   ───────────────────────────────────────────────────────────────────────── */
-
 type FigureProps = {
   src: string;
   alt: string;
@@ -51,7 +42,6 @@ export function Figure({
   );
 }
 
-/** Schema / type-definition callout. Dark surface, mono, slight side padding. */
 export function SpecBlock({
   title,
   children,
@@ -80,7 +70,6 @@ export function SpecBlock({
   );
 }
 
-/** CLI sample. Dark surface, with archaic "operator console" label. */
 export function Cli({
   children,
   className,
@@ -108,7 +97,6 @@ export function Cli({
   );
 }
 
-/** Small inline glyph — cairn, observation, edit, stale. SVG, decorative. */
 export function Marker({
   kind = "cairn",
   className,
@@ -117,7 +105,6 @@ export function Marker({
   className?: string;
 }) {
   const cls = clsx("inline-block align-[-0.15em]", className);
-  // All glyphs are 1em-sized so they scale with surrounding text.
   switch (kind) {
     case "observation":
       return (
@@ -142,7 +129,6 @@ export function Marker({
       );
     case "cairn":
     default:
-      // Small stone-stack icon — three stacked ellipses.
       return (
         <svg viewBox="0 0 16 16" width="1em" height="1em" className={cls} aria-hidden>
           <ellipse cx="8" cy="12.2" rx="5.5" ry="1.8" fill="currentColor" />
@@ -153,7 +139,6 @@ export function Marker({
   }
 }
 
-/** Mono-flavored stat line: 30% / tokens per task / target floor */
 export function StatLine({
   value,
   label,

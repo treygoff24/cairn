@@ -37,7 +37,6 @@ export function Section01Hero() {
         />
       </div>
 
-      {/* Content column */}
       <div
         className="relative mx-auto flex h-full flex-col justify-between"
         style={{
@@ -46,7 +45,6 @@ export function Section01Hero() {
           minHeight: "100dvh",
         }}
       >
-        {/* Top meta bar */}
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-3 font-mono">
             <Marker kind="cairn" className="text-oxide" />
@@ -67,7 +65,6 @@ export function Section01Hero() {
           </nav>
         </div>
 
-        {/* Hero text — sits roughly in the middle of the viewport */}
         <div className="max-w-[42rem]">
           <div className="mb-8 flex items-center gap-4 font-mono text-xs text-ink-muted">
             <span className="text-oxide">§ 01</span>
@@ -113,7 +110,6 @@ export function Section01Hero() {
           </Prose>
         </div>
 
-        {/* Footer scroll cue */}
         <div className="flex items-center justify-between text-xs font-mono text-ink-faint">
           <span className="smallcaps tracking-[0.18em]">
             scroll for the long version

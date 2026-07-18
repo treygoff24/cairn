@@ -42,7 +42,6 @@ export function Section05Coordination() {
         </div>
       </div>
 
-      {/* Three modes */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>5.1 — three modes, one check</SmallCaps>
@@ -81,7 +80,6 @@ export function Section05Coordination() {
         </div>
       </Content>
 
-      {/* TOCTOU */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>5.2 — the precondition closes the race</SmallCaps>
@@ -136,7 +134,6 @@ export function Section05Coordination() {
         </Prose>
       </Content>
 
-      {/* Subagent inheritance */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>5.3 — subagent inheritance, lineage-aware</SmallCaps>

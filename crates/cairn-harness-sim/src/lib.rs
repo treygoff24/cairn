@@ -1,17 +1,14 @@
-//! `cairn-harness-sim` — the deterministic Phase 1 daemon fixture.
+//! `cairn-harness-sim` — a deterministic daemon fixture.
 //!
-//! This crate provides a sync, in-memory harness for Phase 1 daemon tests. The
-//! real daemon/client crates are still landing in the same wave, so the fixture
-//! implements the frozen [`cairn_daemon_client::DaemonClient`] trait and records
-//! the pieces Phase 1 cares about:
+//! The synchronous in-memory harness implements
+//! [`cairn_daemon_client::DaemonClient`] and records three invariants:
 //!
 //! - N simulated clients attach to one worktree.
 //! - every client registers an [`cairn_types::AdapterCapabilities`] value.
 //! - all clients observe one daemon generation.
 //!
 //! Capability registration is recorded both in harness state and in the heartbeat
-//! payload. Phase 2 can replace the in-memory registry with a real daemon transport
-//! while keeping the fixture-facing API.
+//! payload.
 
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
@@ -43,7 +40,7 @@ impl DaemonGeneration {
     }
 }
 
-/// A simulated adapter/client that will attach to the Phase 1 daemon fixture.
+/// A simulated adapter/client that attaches to the daemon fixture.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SimulatedClientSpec {
     client_name: String,
@@ -83,7 +80,7 @@ impl SimulatedClientSpec {
     }
 }
 
-/// Deterministic Phase 1 fixture: one worktree, many simulated clients.
+/// Deterministic fixture for one worktree and many simulated clients.
 #[derive(Debug, Clone)]
 pub struct Phase1DaemonFixture {
     worktree_root: PathBuf,
@@ -139,8 +136,7 @@ impl Phase1DaemonFixture {
         &self.client_specs
     }
 
-    /// Simulated clients in deterministic launch order. Callers can use these
-    /// directly when a Phase 2 test needs to send custom daemon events.
+    /// Simulated clients in deterministic launch order.
     #[must_use]
     pub fn simulated_clients(&self) -> Vec<SimulatedClient> {
         self.client_specs
@@ -166,10 +162,8 @@ impl Phase1DaemonFixture {
 
     /// Returns the current simulated daemon state without launching clients.
     ///
-    /// Phase 2 tests can use [`Phase1DaemonFixture::simulated_clients`] to connect
-    /// clients and send custom protocol events, then call this method to inspect
-    /// the recorded registrations and events without emitting another heartbeat
-    /// batch.
+    /// Use [`Phase1DaemonFixture::simulated_clients`] to send custom protocol
+    /// events before inspecting the recorded state without another heartbeat.
     pub fn snapshot(&self) -> Result<LaunchReport, HarnessError> {
         self.report_from_launches(Vec::new())
     }
@@ -177,9 +171,7 @@ impl Phase1DaemonFixture {
     /// Launches every configured client on its own thread and returns a stable
     /// report ordered by the fixture's client-spec order.
     ///
-    /// This exercises the one-daemon-generation invariant under simultaneous
-    /// attach attempts without asking worker agents to run heavy gates. Snapshot
-    /// events and capability registrations are sorted by stable keys so Phase 2
+    /// Snapshot events and capability registrations are sorted by stable keys so
     /// assertions stay deterministic even when thread scheduling changes.
     pub fn launch_concurrently(&self) -> Result<LaunchReport, HarnessError> {
         let mut handles = Vec::with_capacity(self.client_specs.len());
@@ -259,7 +251,7 @@ pub const fn observing_capabilities() -> AdapterCapabilities {
     }
 }
 
-/// One simulated client attached through the frozen daemon-client trait.
+/// One simulated client attached through the daemon-client trait.
 #[derive(Debug, Clone)]
 pub struct SimulatedClient {
     worktree_root: PathBuf,

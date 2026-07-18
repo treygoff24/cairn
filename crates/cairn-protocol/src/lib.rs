@@ -1,7 +1,5 @@
 //! `cairn-protocol` — daemon wire protocol event envelopes and decisions.
 //!
-//! # Scope: Wave 1.2 daemon contract
-//!
 //! Adapters translate harness-specific tool calls into these lowest-common-
 //! denominator events. The daemon replies with [`DaemonDecision`], computing the
 //! strongest behavior the registered [`AdapterCapabilities`] support. This crate
@@ -390,11 +388,8 @@ pub struct AdapterHeartbeat {
 }
 
 /// An adapter's explicit capability registration, emitted when it attaches to the
-/// daemon. The daemon records this so it can compute the strongest behavior each
-/// adapter supports and surface a capability view. Wave 1.3 Task 2 implements the
-/// daemon-side handling and the capability-view query; the Wave 1.3 implementer may
-/// flesh out fields per spec §6 but must not rename this type or its `DaemonEvent`
-/// variant after the golden fixture freezes.
+/// daemon. The daemon records this to compute the strongest behavior each adapter
+/// supports and surface a capability view.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CapabilityRegistration {
     /// Session registering, if the adapter tracks one.
@@ -464,7 +459,7 @@ pub struct DaemonDecision {
     pub context_frames: Vec<ContextFrameRef>,
     pub replacement_result: Option<ToolResultPayload>,
     pub modified_input: Option<Value>,
-    pub deny_reason: Option<DenyReason>,
+    pub deny_reason: Option<DenyDecision>,
     pub revalidation_instructions: Vec<RevalidationInstruction>,
     pub confidence: Confidence,
     pub expires_at: Option<Timestamp>,
@@ -481,7 +476,7 @@ impl DaemonDecision {
     /// Block the event where the adapter supports blocking.
     #[must_use]
     pub fn deny(
-        deny_reason: DenyReason,
+        deny_reason: DenyDecision,
         revalidation_instructions: Vec<RevalidationInstruction>,
         confidence: Confidence,
     ) -> Self {
@@ -566,7 +561,7 @@ impl DaemonDecision {
 
     /// Attach a structured deny/advisory reason.
     #[must_use]
-    pub fn with_deny_reason(mut self, mut deny_reason: DenyReason) -> Self {
+    pub fn with_deny_reason(mut self, mut deny_reason: DenyDecision) -> Self {
         if deny_reason.minimum_revalidation_set.is_empty() {
             deny_reason.minimum_revalidation_set = self.revalidation_instructions.clone();
         }
@@ -677,7 +672,7 @@ pub enum ProvenanceMarker {
 
 /// Structured deny/advisory explanation for stale or unsafe operations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DenyReason {
+pub struct DenyDecision {
     pub deny_id: Option<String>,
     pub severity: DenySeverity,
     pub message: String,
@@ -690,12 +685,6 @@ pub struct DenyReason {
     pub proof_available: bool,
     pub override_policy: OverridePolicy,
 }
-
-/// Spec-named deny payload retained alongside [`DenyReason`].
-///
-/// `DenyReason` is the frozen Wave 1.2 public name. This alias exposes the
-/// §6/Appendix-B schema name without breaking existing downstream references.
-pub type DenyDecision = DenyReason;
 
 /// Hard denies should block where the adapter can block; soft denies become advisory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -770,6 +759,21 @@ mod tests {
     };
 
     const JS_SAFE_TS: i64 = 1_700_000_000_000_000_123;
+
+    fn assert_json_pointers(
+        value: impl serde::Serialize,
+        expected_pointers: &[(&str, serde_json::Value)],
+    ) {
+        let json = serde_json::to_value(value).expect("value should become json");
+
+        for (pointer, expected) in expected_pointers {
+            assert_eq!(
+                json.pointer(pointer),
+                Some(expected),
+                "missing or mismatched pointer {pointer}"
+            );
+        }
+    }
 
     #[test]
     fn all_event_variants_roundtrip() {
@@ -967,15 +971,7 @@ mod tests {
         ];
 
         for (event, expected_pointers) in cases {
-            let json = serde_json::to_value(event).expect("event should become json");
-
-            for (pointer, expected) in expected_pointers {
-                assert_eq!(
-                    json.pointer(pointer),
-                    Some(&expected),
-                    "missing or mismatched pointer {pointer}"
-                );
-            }
+            assert_json_pointers(event, &expected_pointers);
         }
     }
 
@@ -1034,6 +1030,7 @@ mod tests {
                 sample_decorate_decision(),
                 vec![
                     ("/decision_kind", serde_json::json!("decorate")),
+                    ("/confidence", serde_json::json!("resolved")),
                     (
                         "/context_frames/0/confidence",
                         serde_json::json!("resolved"),
@@ -1075,15 +1072,7 @@ mod tests {
         ];
 
         for (decision, expected_pointers) in cases {
-            let json = serde_json::to_value(decision).expect("decision should become json");
-
-            for (pointer, expected) in expected_pointers {
-                assert_eq!(
-                    json.pointer(pointer),
-                    Some(&expected),
-                    "missing or mismatched pointer {pointer}"
-                );
-            }
+            assert_json_pointers(decision, &expected_pointers);
         }
     }
 
@@ -1094,105 +1083,6 @@ mod tests {
             let back: DaemonDecision =
                 serde_json::from_str(&json).expect("decision should deserialize");
             assert_eq!(back, decision);
-        }
-    }
-
-    #[test]
-    fn decision_payloads_include_required_wire_details() {
-        let cases = vec![
-            (
-                DaemonDecision::allow(Confidence::Verified),
-                vec![
-                    ("/decision_kind", serde_json::json!("allow")),
-                    ("/context_frames", serde_json::json!([])),
-                    ("/confidence", serde_json::json!("verified")),
-                ],
-            ),
-            (
-                sample_deny_decision(),
-                vec![
-                    ("/decision_kind", serde_json::json!("deny")),
-                    (
-                        "/deny_reason/message",
-                        serde_json::json!("target file changed since last read"),
-                    ),
-                    (
-                        "/deny_reason/current_target_version/repo_epoch_id",
-                        serde_json::json!("epoch-2"),
-                    ),
-                    (
-                        "/revalidation_instructions/0/instruction_kind",
-                        serde_json::json!("reread_file"),
-                    ),
-                    ("/confidence", serde_json::json!("verified")),
-                    ("/expires_at", serde_json::json!(JS_SAFE_TS.to_string())),
-                ],
-            ),
-            (
-                sample_advisory_decision(),
-                vec![
-                    ("/decision_kind", serde_json::json!("advisory")),
-                    (
-                        "/context_frames/0/context_frame_id",
-                        serde_json::json!("ctx-1"),
-                    ),
-                    ("/deny_reason/severity", serde_json::json!("soft")),
-                    (
-                        "/revalidation_instructions/0/instruction_kind",
-                        serde_json::json!("wait_for_index"),
-                    ),
-                ],
-            ),
-            (
-                sample_decorate_decision(),
-                vec![
-                    ("/decision_kind", serde_json::json!("decorate")),
-                    (
-                        "/context_frames/0/provenance/0",
-                        serde_json::json!("resolved_import_graph"),
-                    ),
-                    ("/confidence", serde_json::json!("resolved")),
-                ],
-            ),
-            (
-                sample_replace_result_decision(),
-                vec![
-                    ("/decision_kind", serde_json::json!("replace_result")),
-                    ("/replacement_result/status", serde_json::json!("succeeded")),
-                    (
-                        "/replacement_result/output/replacement",
-                        serde_json::json!(true),
-                    ),
-                ],
-            ),
-            (
-                sample_modify_input_decision(),
-                vec![
-                    ("/decision_kind", serde_json::json!("modify_input")),
-                    ("/modified_input/command", serde_json::json!("rg")),
-                    ("/degraded/state/fail_open", serde_json::json!(true)),
-                    ("/degraded/fallback_kind", serde_json::json!("allow")),
-                ],
-            ),
-            (
-                DaemonDecision::observe_only(Confidence::Heuristic),
-                vec![
-                    ("/decision_kind", serde_json::json!("observe_only")),
-                    ("/confidence", serde_json::json!("heuristic")),
-                ],
-            ),
-        ];
-
-        for (decision, expected_pointers) in cases {
-            let json = serde_json::to_value(decision).expect("decision should become json");
-
-            for (pointer, expected) in expected_pointers {
-                assert_eq!(
-                    json.pointer(pointer),
-                    Some(&expected),
-                    "missing or mismatched pointer {pointer}"
-                );
-            }
         }
     }
 
@@ -1233,7 +1123,7 @@ mod tests {
 
     #[test]
     fn deny_and_override_payloads_roundtrip() {
-        let deny: DenyDecision = DenyReason {
+        let deny = DenyDecision {
             deny_id: Some("deny-1".into()),
             severity: DenySeverity::Hard,
             message: "target file changed since last read".into(),
@@ -1567,7 +1457,7 @@ mod tests {
 
     fn sample_deny_decision() -> DaemonDecision {
         DaemonDecision::deny(
-            DenyReason {
+            DenyDecision {
                 deny_id: Some("deny-1".into()),
                 severity: DenySeverity::Hard,
                 message: "target file changed since last read".into(),
@@ -1598,7 +1488,7 @@ mod tests {
             vec![revalidation.clone()],
             Confidence::Heuristic,
         )
-        .with_deny_reason(DenyReason {
+        .with_deny_reason(DenyDecision {
             deny_id: None,
             severity: DenySeverity::Soft,
             message: "dependency graph is still warming".into(),

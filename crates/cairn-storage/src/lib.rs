@@ -1,39 +1,18 @@
 //! `cairn-storage` — the append-only event log: the daemon's spinal cord.
 //!
-//! # Scope: Wave 1.2 contract surface
-//!
-//! Publishes the [`EventLog`] trait and the monotonic [`EventId`]. The Wave 1.2
-//! implementer builds a concrete log behind this trait against a SQLite-WAL (or
-//! equivalent durable) backend — the backend lives behind the trait so its blast
-//! radius is one crate. Required behavior (plan acceptance): atomic append,
-//! strictly-increasing IDs that survive restart, deterministic ordered replay, a
-//! credential-redaction pass on append, and a materialized-view skeleton.
-//!
-//! The Phase 1 golden fixture freezes at the Wave 1.3 boundary — do not reshape
-//! this trait after that without a contract bump.
+//! [`EventLog`] provides atomic append, strictly increasing IDs that survive
+//! restart, deterministic ordered replay, and credential redaction. Its wire and
+//! log shapes require a protocol bump when changed.
 
 use std::{fs, path::Path, time::Duration};
 
 use cairn_protocol::{CURRENT_PROTOCOL_VERSION, DaemonEvent, DaemonEventEnvelope};
 use cairn_types::DaemonEventKind;
+pub use cairn_types::EventId;
 use rusqlite::{Connection, params};
-use serde::{Deserialize, Serialize};
 
 const SCHEMA: &str = include_str!("../migrations/0001_event_log.sql");
 const REDACTED: &str = "[REDACTED]";
-
-/// Monotonic, log-assigned identifier for an appended event. Strictly increasing in
-/// append order and never reused; assigned by the log, not the caller.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EventId(pub u64);
-
-impl EventId {
-    /// Returns the raw numeric event id.
-    #[must_use]
-    pub fn as_u64(self) -> u64 {
-        self.0
-    }
-}
 
 /// Append-only, crash-durable log of [`DaemonEvent`]s with monotonic IDs and
 /// deterministic replay. Backend-agnostic via the associated [`EventLog::Error`].
@@ -162,7 +141,7 @@ pub trait MaterializedView {
     fn apply(&mut self, event_id: EventId, event: &DaemonEvent);
 }
 
-/// Replays the event log into a materialized view skeleton.
+/// Replays the event log into a materialized view.
 pub fn replay_into<L, V>(log: &L, view: &mut V, after: Option<EventId>) -> Result<(), L::Error>
 where
     L: EventLog + ?Sized,
@@ -175,7 +154,7 @@ where
     Ok(())
 }
 
-/// Minimal materialized-view skeleton used until product ledgers land.
+/// Minimal replay progress tracked by the materialized view.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EventLogView {
     latest_event_id: Option<EventId>,

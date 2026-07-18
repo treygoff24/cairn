@@ -1,14 +1,6 @@
 import Image from "next/image";
 import { clsx } from "clsx";
 
-/**
- * SectionPlate — a wide atmospheric image plate that opens a section.
- * The plate has a torn-paper feel: image is the focal element, with a thin
- * warm border above and below. The section's numeral + label can be passed
- * to overlay on the plate's lower edge.
- *
- * Used as a magazine-style "field plate" between section meta and content.
- */
 export function SectionPlate({
   src,
   alt,
@@ -46,8 +38,7 @@ export function SectionPlate({
           />
         </div>
 
-        {/* Overlay strip — section numeral + label, sitting on the image's
-            lower edge with a vellum scrim behind for legibility */}
+        {/* The vellum scrim keeps labels legible over varied plate images. */}
         <div
           aria-hidden
           className="absolute inset-x-0 bottom-0 flex items-baseline gap-5 px-6 py-4"
@@ -71,7 +62,6 @@ export function SectionPlate({
           {caption}
         </figcaption>
       )}
-      {/* Breathing room between the plate edge and whatever sits below */}
       <div className="h-6" aria-hidden />
     </figure>
   );

@@ -1,4 +1,0 @@
-# Cairn cargo configuration.
-#
-# Reserved at bootstrap. Build, target, and registry tuning is added deliberately
-# as waves require it — not imposed by default.

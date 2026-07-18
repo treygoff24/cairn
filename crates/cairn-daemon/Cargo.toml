@@ -10,7 +10,6 @@ authors.workspace = true
 [dependencies]
 cairn-types = { workspace = true }
 cairn-protocol = { workspace = true }
-cairn-storage = { workspace = true }
 cairn-daemon-client = { workspace = true }
 cairn-identity = { workspace = true }
 cairn-config = { workspace = true }

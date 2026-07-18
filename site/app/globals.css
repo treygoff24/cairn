@@ -1,11 +1,7 @@
 @import "tailwindcss";
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Cairn — design tokens
-   See DESIGN_CONTEXT.md for the why behind every value.
-   All neutrals are tinted warm (hue 60-80) so the page reads as printed
-   on paper. The single accent is oxide/rust; the live-signal accent is ember.
-   ───────────────────────────────────────────────────────────────────────── */
+/* Warm-tinted neutrals make the page read as printed paper; oxide marks the
+   primary accent and ember marks live signals. See DESIGN_CONTEXT.md. */
 
 @theme {
   /* Surfaces & ink */
@@ -38,14 +34,14 @@
   /* Type scale — fixed rem, slightly larger than default for archaeological patience */
   --text-xs:    0.75rem;
   --text-sm:    0.875rem;
-  --text-base:  1.0625rem;   /* 17px */
-  --text-lg:    1.25rem;     /* 20px */
-  --text-xl:    1.5rem;      /* 24px */
-  --text-2xl:   2rem;        /* 32px */
-  --text-3xl:   2.5rem;      /* 40px */
-  --text-4xl:   3rem;        /* 48px */
-  --text-5xl:   3.75rem;     /* 60px */
-  --text-6xl:   4.75rem;     /* 76px */
+  --text-base:  1.0625rem;
+  --text-lg:    1.25rem;
+  --text-xl:    1.5rem;
+  --text-2xl:   2rem;
+  --text-3xl:   2.5rem;
+  --text-4xl:   3rem;
+  --text-5xl:   3.75rem;
+  --text-6xl:   4.75rem;
   --text-hero:  clamp(3.5rem, 8vw, 6.5rem);
 
   /* Line heights */
@@ -64,7 +60,6 @@
   --container-wide:    88rem;       /* 1408px — for cutaways/diagrams      */
 }
 
-/* Page baseline */
 html, body {
   background: var(--color-paper-warm);
   color: var(--color-ink-deep);
@@ -80,7 +75,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Display headings */
 h1, h2, h3 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -133,7 +127,6 @@ h1, h2, h3 {
   }
 }
 
-/* Reduced motion — flatten everything that moves */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

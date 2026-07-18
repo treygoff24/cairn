@@ -40,7 +40,6 @@ export function Section04Architecture() {
         </div>
       </div>
 
-      {/* The spine — one daemon */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>4.1 — the spine</SmallCaps>
@@ -66,7 +65,6 @@ export function Section04Architecture() {
         </Prose>
       </Content>
 
-      {/* Storage */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>4.2 — three layers, one truth</SmallCaps>
@@ -107,7 +105,6 @@ export function Section04Architecture() {
         />
       </Content>
 
-      {/* MCP as adapter */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>4.3 — MCP is an adapter, not the substrate</SmallCaps>
@@ -169,7 +166,6 @@ can_attach_file_precondition   // ← TOCTOU eligibility lives here`}
         </Prose>
       </Content>
 
-      {/* Salsa */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>4.5 — incremental, wrapped</SmallCaps>

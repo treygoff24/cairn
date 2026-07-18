@@ -1,7 +1,3 @@
-/* Multi-agent timeline lanes — two sessions, interleaving reads and edits,
-   with one detected staleness event marked oxide.
-   Labels alternate above/below the lane to avoid horizontal collisions. */
-
 type Event = {
   t: number;          // 0–100 position along the lane
   kind: "read" | "edit" | "deny" | "revalidate";
@@ -35,7 +31,6 @@ export function TimelineLanes() {
     { t: 72, kind: "edit", label: "→ tests/route.test.ts",                 pos: "below" },
   ];
 
-  // Lane y positions
   const alpha_y = TOP_PAD;
   const beta_y  = TOP_PAD + LANE_GAP;
   const axis_y  = beta_y + 56;
@@ -74,13 +69,11 @@ export function TimelineLanes() {
             </defs>
             <rect x="0" y="0" width="900" height={svg_h} fill="url(#tl-contour)" />
 
-            {/* Lane labels */}
             <g fontFamily="var(--font-jetbrains)" fontSize="11" fill={INK}>
               <text x="0" y={alpha_y + 4}>session α</text>
               <text x="0" y={beta_y  + 4}>session β</text>
             </g>
 
-            {/* Lane baselines */}
             <line x1="80" y1={alpha_y} x2="880" y2={alpha_y} stroke={STROKE} strokeWidth="1" />
             <line x1="80" y1={beta_y}  x2="880" y2={beta_y}  stroke={STROKE} strokeWidth="1" />
 
@@ -100,12 +93,9 @@ export function TimelineLanes() {
               opacity="0.55"
             />
 
-            {/* α events */}
             <Lane events={alphaEvents} y={alpha_y} />
-            {/* β events */}
             <Lane events={betaEvents} y={beta_y} />
 
-            {/* Time axis */}
             <g fontFamily="var(--font-jetbrains)" fontSize="9" fill={FAINT}>
               <line x1="80" y1={axis_y} x2="880" y2={axis_y} stroke={STROKE} strokeWidth="0.5" />
               {[0, 25, 50, 75, 100].map((p) => (
@@ -119,7 +109,6 @@ export function TimelineLanes() {
             </g>
           </svg>
 
-          {/* Legend */}
           <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 font-mono text-xs text-ink-muted">
             <Legend kind="read"       label="read" />
             <Legend kind="edit"       label="edit" />
@@ -151,7 +140,6 @@ function Lane({ events, y }: { events: Event[]; y: number }) {
         const labelY = isAbove ? y - 18 : y + 22;
         return (
           <g key={i}>
-            {/* tick from marker to label baseline */}
             <line
               x1={x}
               y1={y}
@@ -161,12 +149,10 @@ function Lane({ events, y }: { events: Event[]; y: number }) {
               strokeWidth="0.5"
               opacity="0.6"
             />
-            {/* marker glyph */}
             {e.kind === "read"       && <ReadMark       x={x} y={y} />}
             {e.kind === "edit"       && <EditMark       x={x} y={y} />}
             {e.kind === "deny"       && <DenyMark       x={x} y={y} />}
             {e.kind === "revalidate" && <RevalidateMark x={x} y={y} />}
-            {/* label */}
             <text
               x={x}
               y={labelY}

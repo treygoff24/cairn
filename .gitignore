@@ -14,7 +14,7 @@ docs/dev-notes/
 docs/plans/
 **/.papercuts.jsonl
 
-# Cairn runtime artifacts (V2 daemon will write here once Phase 1 ships)
+# Cairn runtime artifacts
 .cairn/
 
 # Code Briefcase V1 (Python) runtime artifacts — V1 still operates on this repo for dogfooding

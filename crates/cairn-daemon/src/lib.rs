@@ -1,12 +1,11 @@
 //! `cairn-daemon` — the single-instance daemon lifecycle.
 //!
-//! This crate owns the Phase 1 process-lifecycle substrate: one writer daemon per
+//! This crate owns the process-lifecycle substrate: one writer daemon per
 //! worktree identity, fenced by an OS-level exclusive lock, a SQLite-backed lease
 //! DB, a heartbeat file, and a monotonic daemon generation ID. It deliberately
-//! does **not** claim hook enforcement or stale-edit arbitration; those arrive
-//! when the later ledgers and adapter capabilities are wired in. The public API
-//! here is the reusable surface that the CLI, daemon client, and harness simulator
-//! can call to start-or-attach without duplicating split-brain logic.
+//! does **not** claim hook enforcement or stale-edit arbitration. The public API
+//! lets the CLI, daemon client, and harness simulator start or attach without
+//! duplicating split-brain logic.
 
 use std::collections::BTreeSet;
 use std::fs::{self, File, OpenOptions, TryLockError};
@@ -269,8 +268,7 @@ impl DaemonLifecycle {
         runtime_root: impl AsRef<Path>,
     ) -> Result<Self, DaemonLifecycleError> {
         let config_hash = config.config_hash()?;
-        let identity =
-            WorktreeIdentity::compute(root, config_hash, ProtocolVersion(config.protocol_version))?;
+        let identity = WorktreeIdentity::compute(root, config_hash, config.protocol_version)?;
         Ok(Self::new(
             DaemonScope::from_identity(&identity),
             runtime_root,
@@ -789,7 +787,7 @@ pub enum DaemonLifecycleError {
     #[error("daemon socket I/O at `{path}` failed: {source}")]
     SocketIo { path: PathBuf, source: io::Error },
 
-    /// The current platform cannot serve the Phase 1 Unix socket protocol.
+    /// The current platform cannot serve the Unix-socket protocol.
     #[error("Unix-domain daemon sockets are unsupported on this platform")]
     UnsupportedSocketPlatform,
 
@@ -1277,13 +1275,13 @@ fn validate_client_hello(scope: &DaemonScope, hello: &DaemonClientHello) -> Resu
             scope.canonical_root.display()
         ));
     }
-    if hello.worktree_id != scope.worktree_id.as_str() {
+    if hello.worktree_id != scope.worktree_id {
         return Err("client worktree id does not match daemon scope".to_owned());
     }
     if hello.config_hash != scope.config_hash.as_hex() {
         return Err("client config hash does not match daemon scope".to_owned());
     }
-    if hello.protocol_version != scope.protocol_version.0 {
+    if hello.protocol_version != scope.protocol_version {
         return Err("client protocol version does not match daemon scope".to_owned());
     }
     if let Some(socket_key) = scope.socket_key()

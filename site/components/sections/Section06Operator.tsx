@@ -43,7 +43,6 @@ export function Section06Operator() {
         </Prose>
       </Content>
 
-      {/* CLI section */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>6.1 — the two commands that matter most</SmallCaps>
@@ -95,7 +94,6 @@ export function Section06Operator() {
         </Prose>
       </Content>
 
-      {/* The full command set */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>6.2 — the full command set</SmallCaps>
@@ -119,7 +117,6 @@ export function Section06Operator() {
         </div>
       </Content>
 
-      {/* Flight recorder web UI */}
       <Content className="mt-20">
         <div className="flex items-center gap-4">
           <SmallCaps>6.3 — planned P1 flight recorder concept</SmallCaps>
@@ -175,8 +172,6 @@ function CmdRow({ cmd, note, highlight = false }: { cmd: string; note: string; h
 }
 
 function FlightRecorderSketch() {
-  // A minimal SVG sketch of the flight recorder UI — three session lanes,
-  // event marks, a header bar with daemon state, a footer with watcher health.
   return (
     <figure className="my-8">
       <div className="border border-rule-warm bg-paper-warm overflow-hidden">
@@ -199,7 +194,6 @@ function FlightRecorderSketch() {
           </defs>
           <rect x="0" y="0" width="900" height="320" fill="url(#fr-contour)" />
 
-          {/* Top strip — repo epoch + cold-start coverage */}
           <g fontFamily="var(--font-jetbrains)" fontSize="10" fill="var(--color-ink-deep)">
             <text x="20" y="28">repo_epoch e_882</text>
             <text x="180" y="28" fill="var(--color-ink-faint)">head 7e2a91f · branch main</text>
@@ -209,7 +203,6 @@ function FlightRecorderSketch() {
 
           <line x1="20" y1="44" x2="880" y2="44" stroke="oklch(0.74 0.020 75)" strokeWidth="0.6" />
 
-          {/* Three lanes */}
           {[
             { y: 90,  label: "session α", events: [60, 110, 180, 280, 380, 460, 540, 620, 700, 780] },
             { y: 160, label: "session β", events: [80, 140, 220, 290, 350, 440, 510, 590, 660, 740] },
@@ -239,7 +232,6 @@ function FlightRecorderSketch() {
             </g>
           ))}
 
-          {/* Bottom strip — watcher / diagnostic worker health */}
           <line x1="20" y1="285" x2="880" y2="285" stroke="oklch(0.74 0.020 75)" strokeWidth="0.6" />
           <g fontFamily="var(--font-jetbrains)" fontSize="10">
             <text x="20" y="305" fill="oklch(0.20 0.018 60)">watcher</text>

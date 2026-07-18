@@ -1,9 +1,7 @@
 //! `cairn-cli` — operator command implementations, called by the `cairn` binary.
 //!
-//! Wave 1.2 keeps this crate synchronous and dependency-light. The root binary
-//! wires process arguments and the concrete daemon client later; this crate owns
-//! argument parsing, daemon probing through the frozen `DaemonClient` trait, and
-//! terse text / JSON rendering.
+//! This crate stays synchronous and dependency-light. It owns argument parsing,
+//! daemon probing through `DaemonClient`, and terse text / JSON rendering.
 
 use std::fmt;
 use std::io::{self, Write};
@@ -11,10 +9,10 @@ use std::path::{Path, PathBuf};
 
 use cairn_daemon_client::{DaemonClient, DaemonClientError, DaemonStatusReport, LocalDaemonClient};
 use cairn_protocol::{AdapterHeartbeat, AdapterKind, AdapterRef, DaemonDecision, DaemonEvent};
-use cairn_types::{AdapterCapabilities, Timestamp, WorktreeId};
+use cairn_types::{AdapterCapabilities, ConfigHash, ProtocolVersion, Timestamp, WorktreeId};
 use serde_json::{Value, json};
 
-/// Operator command accepted by the Wave 1.2 CLI surface.
+/// Operator command accepted by the CLI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     /// `cairn status`
@@ -50,17 +48,17 @@ pub enum OutputFormat {
 /// Identity details the app layer resolved before invoking the CLI command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IdentitySummary {
-    pub worktree_id: String,
+    pub worktree_id: WorktreeId,
     pub root: PathBuf,
-    pub config_hash: Option<String>,
-    pub protocol_version: Option<u32>,
+    pub config_hash: Option<ConfigHash>,
+    pub protocol_version: Option<ProtocolVersion>,
 }
 
 impl IdentitySummary {
     #[must_use]
-    pub fn new(worktree_id: impl Into<String>, root: impl Into<PathBuf>) -> Self {
+    pub fn new(worktree_id: WorktreeId, root: impl Into<PathBuf>) -> Self {
         Self {
-            worktree_id: worktree_id.into(),
+            worktree_id,
             root: root.into(),
             config_hash: None,
             protocol_version: None,
@@ -68,13 +66,13 @@ impl IdentitySummary {
     }
 
     #[must_use]
-    pub fn with_config_hash(mut self, config_hash: impl Into<String>) -> Self {
-        self.config_hash = Some(config_hash.into());
+    pub fn with_config_hash(mut self, config_hash: ConfigHash) -> Self {
+        self.config_hash = Some(config_hash);
         self
     }
 
     #[must_use]
-    pub fn with_protocol_version(mut self, protocol_version: u32) -> Self {
+    pub fn with_protocol_version(mut self, protocol_version: ProtocolVersion) -> Self {
         self.protocol_version = Some(protocol_version);
         self
     }
@@ -122,7 +120,7 @@ impl StatusSnapshot {
     }
 }
 
-/// Inputs supplied by the root binary once app wiring lands.
+/// Inputs supplied by the root binary.
 #[derive(Debug)]
 pub struct CommandContext<'a, C> {
     pub client: &'a C,
@@ -136,11 +134,7 @@ impl<'a, C> CommandContext<'a, C> {
     }
 }
 
-/// CLI-local extension over the frozen daemon-client trait.
-///
-/// Wave 1.2 froze [`DaemonClient`] at connect/send-event. The CLI also needs the
-/// daemon's runtime status without changing that trait, so production clients and
-/// tests implement this narrow adapter locally.
+/// CLI-local extension that adds runtime status to [`DaemonClient`].
 pub trait DaemonStatusClient: DaemonClient {
     fn request_daemon_status(&self) -> Result<DaemonStatusReport, DaemonClientError>;
 }
@@ -266,7 +260,7 @@ where
     render_report(&report, command.format(), &mut writer).map_err(CliError::Render)
 }
 
-/// Parse, run, and render in one call for the future root binary.
+/// Parse, run, and render in one call.
 pub fn run_args_to_writer<C, I, S, W>(
     args: I,
     context: &CommandContext<'_, C>,
@@ -453,7 +447,7 @@ where
 fn heartbeat_event(snapshot: &StatusSnapshot) -> DaemonEvent {
     DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
         agent_session_id: None,
-        worktree_id: WorktreeId::new(snapshot.identity.worktree_id.clone()),
+        worktree_id: snapshot.identity.worktree_id.clone(),
         harness: AdapterRef {
             adapter_id: "cairn-cli".to_owned(),
             adapter_kind: AdapterKind::Other,
@@ -494,7 +488,11 @@ fn render_text<W>(report: &CommandReport, writer: &mut W) -> io::Result<()>
 where
     W: Write,
 {
-    writeln!(writer, "identity: {}", report.snapshot.identity.worktree_id)?;
+    writeln!(
+        writer,
+        "identity: {}",
+        report.snapshot.identity.worktree_id.as_str()
+    )?;
     writeln!(
         writer,
         "root: {}",
@@ -503,12 +501,25 @@ where
     writeln!(
         writer,
         "config_hash: {}",
-        optional_text(report.snapshot.identity.config_hash.as_deref())
+        optional_text(
+            report
+                .snapshot
+                .identity
+                .config_hash
+                .as_ref()
+                .map(ConfigHash::as_hex),
+        )
     )?;
     writeln!(
         writer,
         "protocol_version: {}",
-        optional_number_text(report.snapshot.identity.protocol_version)
+        optional_number_text(
+            report
+                .snapshot
+                .identity
+                .protocol_version
+                .map(|version| version.0),
+        )
     )?;
     writeln!(
         writer,
@@ -717,9 +728,11 @@ mod tests {
     }
 
     fn test_identity() -> IdentitySummary {
-        IdentitySummary::new("wt-test", "/tmp/cairn")
-            .with_config_hash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-            .with_protocol_version(1)
+        IdentitySummary::new(WorktreeId::new("wt-test"), "/tmp/cairn")
+            .with_config_hash(ConfigHash::from_hex(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ))
+            .with_protocol_version(ProtocolVersion(1))
     }
 
     struct FakeDaemonClient {

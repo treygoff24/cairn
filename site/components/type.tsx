@@ -1,16 +1,6 @@
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Typographic primitives
-   - <DisplayHeader> — hero h1 (level=1) or section h2 (level=2)
-   - <Lede>          — opening paragraph in archaic italic
-   - <Prose>         — body paragraph
-   - <PullQuote>     — block-quote in archaic face, single 1px oxide left rule
-   - <Annotation>    — margin gloss, small archaic italic, faint
-   - <SmallCaps>     — inline small-caps label
-   ───────────────────────────────────────────────────────────────────────── */
-
 type DisplayHeaderProps = {
   level: 1 | 2 | 3;
   children: ReactNode;
@@ -39,7 +29,6 @@ export function DisplayHeader({ level, children, className, dark = false, id }: 
   return <h3 id={id} className={cls} style={style}>{children}</h3>;
 }
 
-/** Lede — italic archaic face, slightly larger than body, ink-muted. */
 export function Lede({
   children,
   className,
@@ -59,7 +48,6 @@ export function Lede({
   );
 }
 
-/** Body paragraph. Caps line length at 65ch. */
 export function Prose({
   children,
   className,
@@ -86,7 +74,6 @@ export function Prose({
   );
 }
 
-/** Pull-quote. Archaic italic, single 1px oxide left rule. */
 export function PullQuote({
   children,
   attribution,
@@ -114,7 +101,6 @@ export function PullQuote({
   );
 }
 
-/** Margin gloss — small archaic italic, faint, for sidebar annotations. */
 export function Annotation({
   children,
   className,
@@ -132,7 +118,6 @@ export function Annotation({
   );
 }
 
-/** Inline small-caps label. */
 export function SmallCaps({
   children,
   className,
@@ -166,7 +151,6 @@ export function SmallCaps({
   );
 }
 
-/** Inline mono label — used for filenames, types, identifiers in prose. */
 export function Mono({
   children,
   className,

@@ -7,7 +7,6 @@ members = [
     "crates/cairn-file",
     "crates/cairn-vcs",
     "crates/cairn-app",
-    # Wave 1.2 — storage, protocol, daemon core.
     "crates/cairn-protocol",
     "crates/cairn-storage",
     "crates/cairn-daemon-client",
@@ -23,14 +22,9 @@ rust-version = "1.95"
 repository = "https://github.com/treygoff24/cairn"
 authors = ["Trey Goff"]
 
-# Shared dependencies are pinned ONCE here and inherited by member crates via
-# `<crate> = { workspace = true }`. Wave 1.1 workers MUST inherit from this table
-# and MUST NOT add new entries to it themselves (six concurrent edits to one TOML
-# table conflict, and the content-hash crate is a load-bearing identity choice, not
-# a per-worker default). New shared deps are added here by the orchestrator only.
+# Shared dependencies are pinned here so crate versions cannot drift during
+# parallel development.
 [workspace.dependencies]
-# Internal crates. Path deps wiring the Wave 1.2 dependency DAG are added here by
-# the orchestrator; Wave 1.2 workers inherit them but do not add new shared entries.
 cairn-types = { path = "crates/cairn-types" }
 cairn-config = { path = "crates/cairn-config" }
 cairn-identity = { path = "crates/cairn-identity" }
@@ -38,27 +32,21 @@ cairn-protocol = { path = "crates/cairn-protocol" }
 cairn-storage = { path = "crates/cairn-storage" }
 cairn-daemon-client = { path = "crates/cairn-daemon-client" }
 cairn-daemon = { path = "crates/cairn-daemon" }
-# Serialization — the daemon's event log, protocol envelopes, and config are serde.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Content addressing. BLAKE3 is THE content-hash algorithm for FileVersion and the
 # working-tree digest — fast on the read/edit hot path. Do not substitute per crate.
 blake3 = "1"
-# Config parsing.
 toml = "0.8"
-# Errors: thiserror for typed library errors, anyhow for the binary's top level.
 thiserror = "2"
 anyhow = "1"
-# Test-only: hermetic temp directories for fixtures.
 tempfile = "3"
 # Durable storage: bundled SQLite (compiled from source) for the WAL event log and
 # the daemon lease DB. Pinned once here; cairn-storage and cairn-daemon inherit.
 rusqlite = { version = "0.32", features = ["bundled"] }
 
-# Lint posture is decided once and inherited by every crate via `[lints] workspace =
-# true`, so a worker's lighter local clippy run can't drift from the orchestrator's
-# full `--all-targets` gate. `unsafe_code = "deny"` holds for Phase 1; the crate that
-# legitimately needs it later (mmap snapshots) opts in explicitly.
+# Centralized lints keep crate-local checks consistent. Unsafe code stays opt-in
+# for crates that eventually need it, such as mmap snapshot storage.
 [workspace.lints.rust]
 unsafe_code = "deny"
 
