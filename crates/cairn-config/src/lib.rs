@@ -44,15 +44,10 @@ pub enum CairnMode {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FeatureFlags {
-    /// Enable diagnostics watch loop and delta reporting.
     pub diagnostics: bool,
-    /// Enable tree-sitter / language extractors.
     pub extract: bool,
-    /// Enable context-frame injection into adapter sessions.
     pub context_injection: bool,
-    /// Enable pre-edit and post-edit interception hooks.
     pub edit_interception: bool,
-    /// Enable cross-session staleness arbitration.
     pub multi_agent_coordination: bool,
 }
 
@@ -74,15 +69,10 @@ impl Default for FeatureFlags {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(default, deny_unknown_fields)]
 pub struct AblationFlags {
-    /// Disable the observation and edit ledgers.
     pub disable_ledger: bool,
-    /// Disable content-hash freshness checks.
     pub disable_freshness_check: bool,
-    /// Disable the dependency graph (if built).
     pub disable_graph: bool,
-    /// Disable all adapter hooks.
     pub disable_hooks: bool,
-    /// Disable the context-frame scheduler.
     pub disable_scheduler: bool,
 }
 
@@ -154,19 +144,15 @@ fn strip_unknown_keys(table: &mut toml::map::Map<String, toml::Value>) {
 /// Errors produced during config loading and processing.
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    /// The TOML source could not be parsed.
     #[error("TOML parse error: {0}")]
     TomlParse(#[from] toml::de::Error),
 
-    /// The struct could not be serialized to canonical form.
     #[error("canonical serialization error: {0}")]
     CanonicalSerialize(String),
 
-    /// Config file could not be read.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// The deserialized config failed semantic validation.
     #[error("config validation error: {0}")]
     Validation(String),
 }
@@ -194,7 +180,6 @@ pub fn load_str(toml_str: &str) -> Result<CairnConfig, ConfigError> {
     Ok(config)
 }
 
-/// Load configuration from a TOML file path.
 pub fn load_path<P: AsRef<Path>>(path: P) -> Result<CairnConfig, ConfigError> {
     let toml_str = std::fs::read_to_string(path)?;
     load_str(&toml_str)

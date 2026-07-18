@@ -175,12 +175,10 @@ Build these as the small fixed set. Compose, don't sprawl.
 - `<Prose>` — body paragraphs.
 - `<PullQuote>` — block-quote, archaic face, oxide accent rule (1px, full
   left border is fine; the ban is on >1px accent stripes).
-- `<Figure caption provenance>` — image + caption + small-caps provenance line.
 - `<SpecBlock>` — schema/code callout on dark surface, mono.
 - `<Cli>` — terminal-flavored block, dark surface, mono, with a small
   archaeological label ("operator console").
 - `<Marker>` — small inline glyph for cairn/stone/observation/edit.
-- `<Annotation>` — margin gloss in archaic italic, faint ink.
 - `<Hairline>` — 1px full-width rule, warm-border, used to separate sections.
 
 ## Motion philosophy

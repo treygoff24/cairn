@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
+import type { StyledChildrenProps } from "@/components/shared-types";
 
 type SectionProps = {
   id?: string;
@@ -91,7 +92,7 @@ function SectionMeta({
 export function Content({
   children,
   className,
-}: { children: ReactNode; className?: string }) {
+}: StyledChildrenProps) {
   return (
     <div
       className={clsx("mx-auto", className)}
@@ -105,7 +106,7 @@ export function Content({
 export function Wide({
   children,
   className,
-}: { children: ReactNode; className?: string }) {
+}: StyledChildrenProps) {
   return (
     <div
       className={clsx("mx-auto", className)}

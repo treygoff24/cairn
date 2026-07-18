@@ -30,7 +30,6 @@ pub struct DaemonEventEnvelope {
 }
 
 impl DaemonEventEnvelope {
-    /// Wraps an event in the current Cairn protocol version.
     #[must_use]
     pub fn current(event: DaemonEvent) -> Self {
         Self {
@@ -48,7 +47,6 @@ pub struct DaemonDecisionEnvelope {
 }
 
 impl DaemonDecisionEnvelope {
-    /// Wraps a decision in the current Cairn protocol version.
     #[must_use]
     pub fn current(decision: DaemonDecision) -> Self {
         Self {
@@ -62,31 +60,18 @@ impl DaemonDecisionEnvelope {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
 pub enum DaemonEvent {
-    /// A new agent session attached to a worktree.
     SessionStart(SessionStart),
-    /// An agent session ended or detached.
     SessionEnd(SessionEnd),
-    /// A harness tool call is about to run.
     ToolIntent(ToolIntent),
-    /// A harness tool call finished.
     ToolResult(ToolResult),
-    /// The agent observed a file version.
     ReadObserved(ReadObserved),
-    /// The agent intends to edit a file.
     EditIntent(EditIntent),
-    /// An edit was applied and a new version may exist.
     EditApplied(EditApplied),
-    /// A command is about to run.
     CommandIntent(CommandIntent),
-    /// A command finished.
     CommandResult(CommandResult),
-    /// The harness is about to compact context.
     CompactIntent(CompactIntent),
-    /// The repository epoch or VCS operation state changed.
     VcsStateChanged(VcsStateChanged),
-    /// Adapter liveness and capability report.
     AdapterHeartbeat(AdapterHeartbeat),
-    /// An adapter registered its capability bitset on attach.
     CapabilityRegistration(CapabilityRegistration),
 }
 
@@ -111,7 +96,6 @@ impl DaemonEvent {
         }
     }
 
-    /// Wraps this event in a current-version wire envelope.
     #[must_use]
     pub fn into_current_envelope(self) -> DaemonEventEnvelope {
         DaemonEventEnvelope::current(self)
@@ -186,7 +170,7 @@ pub struct ToolIntent {
     pub harness: AdapterRef,
     pub tool_call_id: String,
     pub tool_name: String,
-    pub input: Value,
+    pub input: ToolInput,
     pub repo_epoch_id: Option<RepoEpochId>,
     pub occurred_at: Timestamp,
     pub token_usage: Option<TokenUsage>,
@@ -210,9 +194,31 @@ pub struct ToolResult {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolResultPayload {
     pub status: ToolStatus,
-    pub output: Value,
+    pub output: ToolOutput,
     pub error: Option<String>,
     pub latency_ms: Option<u64>,
+}
+
+/// Harness-native tool input preserved as JSON at the protocol boundary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ToolInput(Value);
+
+impl From<Value> for ToolInput {
+    fn from(value: Value) -> Self {
+        Self(value)
+    }
+}
+
+/// Harness-native tool output preserved as JSON at the protocol boundary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ToolOutput(Value);
+
+impl From<Value> for ToolOutput {
+    fn from(value: Value) -> Self {
+        Self(value)
+    }
 }
 
 /// Portable tool or command outcome.
@@ -258,7 +264,7 @@ pub struct EditIntent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EditPayload {
     pub edit_kind: EditKind,
-    pub input: Value,
+    pub input: ToolInput,
     pub exact_diff: Option<String>,
 }
 
@@ -392,17 +398,11 @@ pub struct AdapterHeartbeat {
 /// supports and surface a capability view.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CapabilityRegistration {
-    /// Session registering, if the adapter tracks one.
     pub agent_session_id: Option<SessionId>,
-    /// Worktree the adapter attached to.
     pub worktree_id: WorktreeId,
-    /// The harness/adapter announcing itself.
     pub harness: AdapterRef,
-    /// The capability bitset the adapter supports.
     pub capabilities: AdapterCapabilities,
-    /// When the registration was emitted.
     pub registered_at: Timestamp,
-    /// Daemon generation the adapter registered against, if known.
     pub daemon_generation_id: Option<String>,
 }
 
@@ -424,7 +424,6 @@ pub struct DegradedState {
 }
 
 impl DegradedState {
-    /// Construct a healthy state for clients that report optional degradation.
     #[must_use]
     pub fn healthy() -> Self {
         Self {
@@ -434,7 +433,6 @@ impl DegradedState {
         }
     }
 
-    /// Construct a fail-open degraded state without taking a wall-clock dependency.
     #[must_use]
     pub fn degraded(reason: impl Into<String>) -> Self {
         Self {
@@ -444,7 +442,6 @@ impl DegradedState {
         }
     }
 
-    /// Attach the timestamp at which degradation started.
     #[must_use]
     pub fn with_since(mut self, since: Timestamp) -> Self {
         self.since = since;
@@ -458,7 +455,7 @@ pub struct DaemonDecision {
     pub decision_kind: DaemonDecisionKind,
     pub context_frames: Vec<ContextFrameRef>,
     pub replacement_result: Option<ToolResultPayload>,
-    pub modified_input: Option<Value>,
+    pub modified_input: Option<ToolInput>,
     pub deny_reason: Option<DenyDecision>,
     pub revalidation_instructions: Vec<RevalidationInstruction>,
     pub confidence: Confidence,
@@ -512,7 +509,7 @@ impl DaemonDecision {
 
     /// Modify an adapter tool input before execution.
     #[must_use]
-    pub fn modify_input(modified_input: Value, confidence: Confidence) -> Self {
+    pub fn modify_input(modified_input: ToolInput, confidence: Confidence) -> Self {
         Self::new(DaemonDecisionKind::ModifyInput, confidence).with_modified_input(modified_input)
     }
 
@@ -538,28 +535,26 @@ impl DaemonDecision {
         }
     }
 
-    /// Attach context frames to any decision kind.
     #[must_use]
     pub fn with_context_frames(mut self, context_frames: Vec<ContextFrameRef>) -> Self {
         self.context_frames = context_frames;
         self
     }
 
-    /// Attach a replacement result payload to a replace-result decision.
     #[must_use]
     pub fn with_replacement_result(mut self, replacement_result: ToolResultPayload) -> Self {
         self.replacement_result = Some(replacement_result);
         self
     }
 
-    /// Attach a modified input payload to a modify-input decision.
     #[must_use]
-    pub fn with_modified_input(mut self, modified_input: Value) -> Self {
+    pub fn with_modified_input(mut self, modified_input: ToolInput) -> Self {
         self.modified_input = Some(modified_input);
         self
     }
 
-    /// Attach a structured deny/advisory reason.
+    /// Copies already-attached revalidation steps into a reason whose minimum set
+    /// has not been populated yet.
     #[must_use]
     pub fn with_deny_reason(mut self, mut deny_reason: DenyDecision) -> Self {
         if deny_reason.minimum_revalidation_set.is_empty() {
@@ -569,7 +564,7 @@ impl DaemonDecision {
         self
     }
 
-    /// Attach concrete revalidation steps the agent should take.
+    /// Keeps an empty deny minimum set synchronized with the attached steps.
     #[must_use]
     pub fn with_revalidation_instructions(
         mut self,
@@ -584,14 +579,12 @@ impl DaemonDecision {
         self
     }
 
-    /// Set the advisory/decoration expiry timestamp.
     #[must_use]
     pub fn with_expires_at(mut self, expires_at: Timestamp) -> Self {
         self.expires_at = Some(expires_at);
         self
     }
 
-    /// Attach fail-open metadata to a decision.
     #[must_use]
     pub fn with_degraded(mut self, degraded: DegradedDecision) -> Self {
         self.degraded = Some(degraded);
@@ -612,7 +605,6 @@ impl DaemonDecision {
         }
     }
 
-    /// Wraps this decision in a current-version wire envelope.
     #[must_use]
     pub fn into_current_envelope(self) -> DaemonDecisionEnvelope {
         DaemonDecisionEnvelope::current(self)
@@ -1311,7 +1303,7 @@ mod tests {
             harness: adapter_ref(),
             tool_call_id: "tool-1".into(),
             tool_name: "Read".into(),
-            input: serde_json::json!({ "path": "src/lib.rs" }),
+            input: serde_json::json!({ "path": "src/lib.rs" }).into(),
             repo_epoch_id: Some(RepoEpochId::new("epoch-1")),
             occurred_at: timestamp(),
             token_usage: Some(token_usage()),
@@ -1357,7 +1349,7 @@ mod tests {
             related_observed_versions: vec![file_version("file-2", "src/main.rs", "epoch-1")],
             edit: EditPayload {
                 edit_kind: EditKind::Modify,
-                input: serde_json::json!({ "old": "a", "new": "b" }),
+                input: serde_json::json!({ "old": "a", "new": "b" }).into(),
                 exact_diff: Some("-a\n+b\n".into()),
             },
             occurred_at: timestamp(),
@@ -1512,7 +1504,7 @@ mod tests {
         DaemonDecision::replace_result(
             ToolResultPayload {
                 status: ToolStatus::Succeeded,
-                output: serde_json::json!({ "replacement": true }),
+                output: serde_json::json!({ "replacement": true }).into(),
                 error: None,
                 latency_ms: Some(7),
             },
@@ -1523,7 +1515,7 @@ mod tests {
 
     fn sample_modify_input_decision() -> DaemonDecision {
         DaemonDecision::modify_input(
-            serde_json::json!({ "command": "rg", "args": ["needle"] }),
+            serde_json::json!({ "command": "rg", "args": ["needle"] }).into(),
             Confidence::Resolved,
         )
         .with_expires_at(timestamp())
@@ -1615,7 +1607,7 @@ mod tests {
     fn tool_result_payload() -> ToolResultPayload {
         ToolResultPayload {
             status: ToolStatus::Succeeded,
-            output: serde_json::json!({ "content": "hello" }),
+            output: serde_json::json!({ "content": "hello" }).into(),
             error: None,
             latency_ms: Some(5),
         }

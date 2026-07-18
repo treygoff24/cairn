@@ -19,9 +19,7 @@ export function SectionPlate({
   caption?: string;
   className?: string;
   dark?: boolean;
-  /** CSS aspect-ratio. Default 16/9; pass "21/9" for panoramic, "4/3" for tall. */
   aspectRatio?: string;
-  /** CSS object-position. Default center. Use "center bottom" to anchor low. */
   objectPosition?: string;
 }) {
   return (

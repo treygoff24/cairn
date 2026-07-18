@@ -38,13 +38,10 @@ const DEFAULT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 /// agent: callers treat every variant as "proceed without the daemon's opinion".
 #[derive(Debug, thiserror::Error)]
 pub enum DaemonClientError {
-    /// No daemon is reachable for this worktree and one could not be reached.
     #[error("daemon unavailable: {0}")]
     Unavailable(String),
-    /// A launch was attempted but the daemon did not come up.
     #[error("daemon launch failed: {0}")]
     LaunchFailed(String),
-    /// The daemon did not respond within the client's deadline.
     #[error("daemon request timed out")]
     Timeout,
 }
@@ -70,7 +67,6 @@ impl DaemonClientError {
         true
     }
 
-    /// Human-readable reason without the enum display prefix.
     #[must_use]
     pub fn degradation_reason(&self) -> String {
         match self {
@@ -91,7 +87,6 @@ impl DaemonClientError {
         }
     }
 
-    /// Converts this transport error into the protocol's explicit degraded state.
     #[must_use]
     pub fn degraded_state(&self, since: Timestamp) -> DegradedState {
         let degradation = self.degradation(since);
@@ -102,8 +97,6 @@ impl DaemonClientError {
         }
     }
 
-    /// Converts this degraded transport error into the protocol's explicit
-    /// fail-open decision shape.
     #[must_use]
     pub fn degraded_decision(&self) -> DaemonDecision {
         let degradation = self.degradation(Timestamp::now());
@@ -162,7 +155,6 @@ impl DaemonIdentity {
             .map_err(identity_error)
     }
 
-    /// Wraps a precomputed worktree identity.
     #[must_use]
     pub fn from_worktree(worktree: WorktreeIdentity) -> Self {
         let socket_key = socket_key_for_identity(&worktree);
@@ -172,19 +164,16 @@ impl DaemonIdentity {
         }
     }
 
-    /// Full identity tuple computed by `cairn-identity`.
     #[must_use]
     pub fn worktree(&self) -> &WorktreeIdentity {
         &self.worktree
     }
 
-    /// Short, stable key used only in the socket filename.
     #[must_use]
     pub fn socket_key(&self) -> &str {
         &self.socket_key
     }
 
-    /// Serializable identity view sent on the daemon wire.
     #[must_use]
     pub fn hello(&self) -> DaemonClientHello {
         DaemonClientHello {
@@ -229,13 +218,11 @@ impl DaemonSocket {
         })
     }
 
-    /// Filesystem path for the Unix socket.
     #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    /// Stable short key shared with [`DaemonIdentity`].
     #[must_use]
     pub fn identity_key(&self) -> &str {
         &self.identity_key
@@ -355,7 +342,6 @@ pub struct CommandDaemonLauncher {
 }
 
 impl CommandDaemonLauncher {
-    /// Creates a launcher with a custom executable and no base arguments.
     #[must_use]
     pub fn new(program: impl Into<PathBuf>) -> Self {
         Self {
@@ -364,7 +350,6 @@ impl CommandDaemonLauncher {
         }
     }
 
-    /// Creates a launcher with custom executable and fixed leading arguments.
     #[must_use]
     pub fn with_args<I, S>(program: impl Into<PathBuf>, args: I) -> Self
     where
@@ -429,7 +414,6 @@ pub struct LocalDaemonClient {
 }
 
 impl LocalDaemonClient {
-    /// Computes identity from `root` and uses the default process launcher.
     pub fn for_worktree(
         root: impl AsRef<Path>,
         config_hash: ConfigHash,
@@ -439,7 +423,6 @@ impl LocalDaemonClient {
         Self::from_identity(identity, DaemonClientConfig::default())
     }
 
-    /// Uses a precomputed identity and the default process launcher.
     pub fn from_identity(
         identity: DaemonIdentity,
         config: DaemonClientConfig,
@@ -447,7 +430,6 @@ impl LocalDaemonClient {
         Self::with_launcher(identity, config, Arc::new(CommandDaemonLauncher::default()))
     }
 
-    /// Uses a precomputed identity and caller-supplied launcher.
     pub fn with_launcher(
         identity: DaemonIdentity,
         config: DaemonClientConfig,
@@ -462,13 +444,11 @@ impl LocalDaemonClient {
         })
     }
 
-    /// Full identity used for socket discovery.
     #[must_use]
     pub fn identity(&self) -> &DaemonIdentity {
         &self.identity
     }
 
-    /// Socket selected for this identity.
     #[must_use]
     pub fn socket(&self) -> &DaemonSocket {
         &self.socket

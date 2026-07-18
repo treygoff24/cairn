@@ -1,6 +1,6 @@
 use cairn_daemon_client::DaemonClient;
 use cairn_harness_sim::{
-    FIRST_DAEMON_GENERATION, HarnessError, Phase1DaemonFixture, SimulatedClientSpec,
+    FIRST_DAEMON_GENERATION, HarnessError, LaunchReport, Phase1DaemonFixture, SimulatedClientSpec,
     observing_capabilities,
 };
 use cairn_protocol::{
@@ -57,20 +57,7 @@ fn fixture_records_capability_registrations_and_heartbeats_in_order() {
         vec!["sim-client-0001", "sim-client-0002", "sim-client-0003"]
     );
 
-    for registration in report.capability_registrations() {
-        assert_eq!(registration.generation(), FIRST_DAEMON_GENERATION);
-        assert_eq!(registration.capabilities(), capabilities);
-    }
-
-    let heartbeat_timestamps = report
-        .events()
-        .iter()
-        .map(|event| match event {
-            DaemonEvent::AdapterHeartbeat(heartbeat) => heartbeat.sent_at.0,
-            other => panic!("unexpected event recorded: {other:?}"),
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(heartbeat_timestamps, vec![1, 2, 3]);
+    assert_capabilities_and_heartbeats(&report, capabilities, [1, 2, 3]);
 
     for event in report.events() {
         let DaemonEvent::AdapterHeartbeat(heartbeat) = event else {
@@ -134,20 +121,7 @@ fn concurrent_launches_still_share_one_daemon_generation() {
         );
     }
 
-    for registration in report.capability_registrations() {
-        assert_eq!(registration.generation(), FIRST_DAEMON_GENERATION);
-        assert_eq!(registration.capabilities(), capabilities);
-    }
-
-    let heartbeat_timestamps = report
-        .events()
-        .iter()
-        .map(|event| match event {
-            DaemonEvent::AdapterHeartbeat(heartbeat) => heartbeat.sent_at.0,
-            other => panic!("unexpected event recorded: {other:?}"),
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(heartbeat_timestamps, (1..=24).collect::<Vec<_>>());
+    assert_capabilities_and_heartbeats(&report, capabilities, 1..=24);
 }
 
 #[test]
@@ -201,24 +175,16 @@ fn snapshot_supports_phase2_custom_events_without_relaunching() {
         .connect_or_launch()
         .expect("simulated client should attach");
 
-    let session_start = DaemonEvent::SessionStart(SessionStart {
-        agent_session_id: SessionId::new("phase2-session"),
-        root_session_id: SessionId::new("phase2-session"),
-        parent_session_id: None,
-        spawn_event_id: None,
-        lineage_depth: 0,
-        worktree_id: WorktreeId::new(worktree_id_value(worktree.path())),
-        harness: AdapterRef {
-            adapter_id: client.client_name().to_owned(),
-            adapter_kind: AdapterKind::HarnessSim,
-        },
+    let mut session_start = session_start(
+        "phase2-session",
+        WorktreeId::new(worktree_id_value(worktree.path())),
+        client.client_name(),
         capabilities,
-        repo_epoch: None,
-        started_at: Timestamp(42),
-        task_id: Some("phase2-task".to_owned()),
-        task_summary: Some("phase2 custom event smoke".to_owned()),
-        inherited_context_frame_ids: Vec::new(),
-    });
+        42,
+    );
+    session_start.task_id = Some("phase2-task".to_owned());
+    session_start.task_summary = Some("phase2 custom event smoke".to_owned());
+    let session_start = DaemonEvent::SessionStart(session_start);
 
     client
         .send_event(&session_start)
@@ -256,24 +222,13 @@ fn custom_events_for_other_worktrees_are_rejected() {
         .connect_or_launch()
         .expect("simulated client should attach");
 
-    let event = DaemonEvent::SessionStart(SessionStart {
-        agent_session_id: SessionId::new("wrong-worktree-session"),
-        root_session_id: SessionId::new("wrong-worktree-session"),
-        parent_session_id: None,
-        spawn_event_id: None,
-        lineage_depth: 0,
-        worktree_id: WorktreeId::new("different-worktree"),
-        harness: AdapterRef {
-            adapter_id: client.client_name().to_owned(),
-            adapter_kind: AdapterKind::HarnessSim,
-        },
+    let event = DaemonEvent::SessionStart(session_start(
+        "wrong-worktree-session",
+        WorktreeId::new("different-worktree"),
+        client.client_name(),
         capabilities,
-        repo_epoch: None,
-        started_at: Timestamp(77),
-        task_id: None,
-        task_summary: None,
-        inherited_context_frame_ids: Vec::new(),
-    });
+        77,
+    ));
 
     let error = client
         .send_event(&event)
@@ -302,6 +257,58 @@ fn duplicate_client_names_are_rejected_before_launch() {
 
 fn worktree_id_value(worktree_root: &std::path::Path) -> String {
     format!("harness-sim:{}", worktree_root.display())
+}
+
+fn assert_capabilities_and_heartbeats(
+    report: &LaunchReport,
+    capabilities: AdapterCapabilities,
+    expected_timestamps: impl IntoIterator<Item = i64>,
+) {
+    for registration in report.capability_registrations() {
+        assert_eq!(registration.generation(), FIRST_DAEMON_GENERATION);
+        assert_eq!(registration.capabilities(), capabilities);
+    }
+
+    let heartbeat_timestamps = report
+        .events()
+        .iter()
+        .map(|event| match event {
+            DaemonEvent::AdapterHeartbeat(heartbeat) => heartbeat.sent_at.0,
+            other => panic!("unexpected event recorded: {other:?}"),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        heartbeat_timestamps,
+        expected_timestamps.into_iter().collect::<Vec<_>>()
+    );
+}
+
+fn session_start(
+    agent_session_id: &str,
+    worktree_id: WorktreeId,
+    client_name: &str,
+    capabilities: AdapterCapabilities,
+    started_at: i64,
+) -> SessionStart {
+    let agent_session_id = SessionId::new(agent_session_id);
+    SessionStart {
+        root_session_id: agent_session_id.clone(),
+        agent_session_id,
+        parent_session_id: None,
+        spawn_event_id: None,
+        lineage_depth: 0,
+        worktree_id,
+        harness: AdapterRef {
+            adapter_id: client_name.to_owned(),
+            adapter_kind: AdapterKind::HarnessSim,
+        },
+        capabilities,
+        repo_epoch: None,
+        started_at: Timestamp(started_at),
+        task_id: None,
+        task_summary: None,
+        inherited_context_frame_ids: Vec::new(),
+    }
 }
 
 fn blocking_capabilities() -> AdapterCapabilities {

@@ -1,46 +1,6 @@
-import Image from "next/image";
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
-
-type FigureProps = {
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  caption?: ReactNode;
-  provenance?: ReactNode;
-  className?: string;
-  priority?: boolean;
-};
-
-export function Figure({
-  src, alt, width, height, caption, provenance, className, priority = false,
-}: FigureProps) {
-  return (
-    <figure className={clsx("my-10", className)}>
-      <div className="relative w-full overflow-hidden">
-        <Image
-          src={src}
-          alt={alt}
-          width={width}
-          height={height}
-          priority={priority}
-          className="w-full h-auto"
-        />
-      </div>
-      {(caption || provenance) && (
-        <figcaption className="mt-3 flex items-baseline justify-between gap-6 text-sm">
-          {caption && <span className="text-ink-muted max-w-[60ch]">{caption}</span>}
-          {provenance && (
-            <span className="smallcaps text-ink-faint tracking-[0.16em] shrink-0">
-              {provenance}
-            </span>
-          )}
-        </figcaption>
-      )}
-    </figure>
-  );
-}
+import { Content, Hairline } from "@/components/layout";
 
 export function SpecBlock({
   title,
@@ -156,5 +116,23 @@ export function StatLine({
       <div className="smallcaps tracking-[0.16em] text-sm text-ink-muted">{label}</div>
       {sub && <div className="archaic italic text-sm text-ink-faint">{sub}</div>}
     </div>
+  );
+}
+
+export function NextSection({
+  label,
+  className = "mt-12",
+}: {
+  label: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Content className={className}>
+      <Hairline />
+      <p className="mt-10 flex items-center gap-3 font-mono text-sm text-oxide">
+        <Marker kind="cairn" />
+        <span>{label}</span>
+      </p>
+    </Content>
   );
 }

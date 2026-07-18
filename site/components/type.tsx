@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
+import type { StyledChildrenProps } from "@/components/shared-types";
 
 type DisplayHeaderProps = {
   level: 1 | 2 | 3;
@@ -101,23 +102,6 @@ export function PullQuote({
   );
 }
 
-export function Annotation({
-  children,
-  className,
-}: { children: ReactNode; className?: string }) {
-  return (
-    <aside
-      className={clsx(
-        "archaic italic text-sm text-ink-faint max-w-[28ch]",
-        className,
-      )}
-      style={{ lineHeight: "1.4" }}
-    >
-      {children}
-    </aside>
-  );
-}
-
 export function SmallCaps({
   children,
   className,
@@ -154,7 +138,7 @@ export function SmallCaps({
 export function Mono({
   children,
   className,
-}: { children: ReactNode; className?: string }) {
+}: StyledChildrenProps) {
   return (
     <code
       className={clsx(

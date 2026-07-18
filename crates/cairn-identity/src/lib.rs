@@ -60,63 +60,48 @@ impl WorktreeIdentity {
 /// Observed case semantics for the filesystem containing a path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PathCaseSemantics {
-    /// ASCII case variants resolve to the same filesystem entry.
     CaseInsensitive,
-    /// ASCII case variants do not resolve to the same filesystem entry.
     CaseSensitive,
-    /// The path contained no ASCII component suitable for a read-only probe.
     Unknown,
 }
 
 /// Errors returned while computing canonical worktree identity.
 #[derive(Debug, Error)]
 pub enum IdentityError {
-    /// The supplied root could not be resolved to a real path.
     #[error("failed to canonicalize worktree root `{path}`: {source}")]
     CanonicalizeRoot { path: PathBuf, source: io::Error },
 
-    /// The resolved root is not a directory.
     #[error("worktree root `{path}` is not a directory")]
     RootNotDirectory { path: PathBuf },
 
-    /// The root's `.git` entry could not be inspected.
     #[error("failed to inspect git metadata entry `{path}`: {source}")]
     InspectGitEntry { path: PathBuf, source: io::Error },
 
-    /// A git metadata file could not be read as text.
     #[error("failed to read git metadata file `{path}`: {source}")]
     ReadGitMetadataFile { path: PathBuf, source: io::Error },
 
-    /// A `.git` file did not use Git's `gitdir: <path>` format.
     #[error("malformed .git file `{path}`: expected `gitdir: <path>`")]
     MalformedGitFile { path: PathBuf },
 
-    /// A `.git` or `commondir` file pointed to an empty path.
     #[error("git metadata file `{path}` points to an empty path")]
     EmptyGitMetadataPath { path: PathBuf },
 
-    /// The resolved `.git` path is neither a file nor a directory.
     #[error("unsupported git metadata entry `{path}`: expected file or directory")]
     UnsupportedGitEntry { path: PathBuf },
 
-    /// A gitdir path could not be resolved to a real path.
     #[error("failed to canonicalize git directory `{path}`: {source}")]
     CanonicalizeGitDir { path: PathBuf, source: io::Error },
 
-    /// The resolved gitdir is not a directory.
     #[error("resolved git directory `{path}` is not a directory")]
     GitDirNotDirectory { path: PathBuf },
 
-    /// A common git dir path could not be resolved to a real path.
     #[error("failed to canonicalize git common directory `{path}`: {source}")]
     CanonicalizeGitCommonDir { path: PathBuf, source: io::Error },
 
-    /// The resolved common git dir is not a directory.
     #[error("resolved git common directory `{path}` is not a directory")]
     GitCommonDirNotDirectory { path: PathBuf },
 }
 
-/// Computes identity for one daemon/worktree scope.
 pub fn compute_worktree_identity(
     root: impl AsRef<Path>,
     config_hash: ConfigHash,

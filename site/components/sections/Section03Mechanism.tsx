@@ -1,6 +1,6 @@
-import { Section, Content, TwoColumn, Hairline } from "@/components/layout";
+import { Section, Content, TwoColumn } from "@/components/layout";
 import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
-import { SpecBlock, Marker } from "@/components/blocks";
+import { NextSection, SpecBlock } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 import { LedgerStack } from "@/components/diagrams/LedgerStack";
 
@@ -165,13 +165,7 @@ export function Section03Mechanism() {
         </div>
       </Content>
 
-      <Content className="mt-20">
-        <Hairline />
-        <p className="mt-10 flex items-center gap-3 font-mono text-sm text-oxide">
-          <Marker kind="cairn" />
-          <span>§ 04 — the daemon that owns the ledger.</span>
-        </p>
-      </Content>
+      <NextSection className="mt-20" label="§ 04 — the daemon that owns the ledger." />
     </Section>
   );
 }

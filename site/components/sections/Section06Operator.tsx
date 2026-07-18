@@ -1,6 +1,6 @@
-import { Section, Content, Hairline, Wide } from "@/components/layout";
+import { Section, Content, Wide } from "@/components/layout";
 import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
-import { Cli, Marker } from "@/components/blocks";
+import { Cli, NextSection } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 
 export function Section06Operator() {
@@ -148,13 +148,7 @@ export function Section06Operator() {
         </PullQuote>
       </Content>
 
-      <Content className="mt-12">
-        <Hairline />
-        <p className="mt-10 flex items-center gap-3 font-mono text-sm text-oxide">
-          <Marker kind="cairn" />
-          <span>§ 07 — how we&apos;ll know it works.</span>
-        </p>
-      </Content>
+      <NextSection label="§ 07 — how we'll know it works." />
     </Section>
   );
 }

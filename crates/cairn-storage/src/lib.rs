@@ -7,8 +7,7 @@
 use std::{fs, path::Path, time::Duration};
 
 use cairn_protocol::{CURRENT_PROTOCOL_VERSION, DaemonEvent, DaemonEventEnvelope};
-use cairn_types::DaemonEventKind;
-pub use cairn_types::EventId;
+use cairn_types::{DaemonEventKind, EventId};
 use rusqlite::{Connection, params};
 
 const SCHEMA: &str = include_str!("../migrations/0001_event_log.sql");
@@ -35,22 +34,16 @@ pub trait EventLog {
 /// Errors raised by the durable SQLite event log.
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
-    /// Filesystem setup failed while opening the database path.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    /// SQLite failed to open, initialize, append, or replay the event log.
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
-    /// A daemon event could not be serialized or decoded.
     #[error("event serialization failed: {0}")]
     Serde(#[from] serde_json::Error),
-    /// Caller supplied an event id too large for SQLite's signed rowid domain.
     #[error("event id {0} is outside SQLite's rowid range")]
     EventIdOutOfRange(u64),
-    /// SQLite returned a rowid that cannot be a Cairn event id.
     #[error("SQLite returned invalid event rowid {0}")]
     InvalidRowId(i64),
-    /// Persisted protocol versions disagreed or are not supported by this build.
     #[error("stored protocol version {stored} does not match envelope protocol version {envelope}")]
     ProtocolVersionMismatch { stored: u32, envelope: u32 },
 }
@@ -163,19 +156,16 @@ pub struct EventLogView {
 }
 
 impl EventLogView {
-    /// Highest event id applied to this view.
     #[must_use]
     pub fn latest_event_id(&self) -> Option<EventId> {
         self.latest_event_id
     }
 
-    /// Number of events applied to this view.
     #[must_use]
     pub fn applied_events(&self) -> usize {
         self.applied_events
     }
 
-    /// Kind of the most recently applied event.
     #[must_use]
     pub fn last_event_kind(&self) -> Option<DaemonEventKind> {
         self.last_event_kind
@@ -503,16 +493,9 @@ mod tests {
             "adapter queued token ghp_123456789abcdef before reconnect",
         );
 
-        log.append(&event).expect("append");
+        let event_id = log.append(&event).expect("append");
 
-        let (protocol_version, payload): (u32, String) = log
-            .connection()
-            .query_row(
-                "SELECT protocol_version, payload FROM events WHERE event_id = 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .expect("stored payload");
+        let (protocol_version, payload) = stored_payload(&log, event_id);
         let decoded =
             deserialize_persisted_event(protocol_version, &payload).expect("payload decodes");
 
@@ -578,17 +561,11 @@ mod tests {
         let mut log = SqliteEventLog::open(dir.path().join("events.db")).expect("open log");
         let event = tool_intent_with_secret_named_file_version();
 
-        log.append(&event)
+        let event_id = log
+            .append(&event)
             .expect("append should not revalidate redacted JSON");
 
-        let (protocol_version, payload): (u32, String) = log
-            .connection()
-            .query_row(
-                "SELECT protocol_version, payload FROM events WHERE event_id = 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .expect("stored payload");
+        let (protocol_version, payload) = stored_payload(&log, event_id);
         let replayed = log.replay(None).expect("redacted payload should replay");
 
         assert_eq!(protocol_version, CURRENT_PROTOCOL_VERSION.0);
@@ -668,6 +645,16 @@ mod tests {
             .collect()
     }
 
+    fn stored_payload(log: &SqliteEventLog, event_id: EventId) -> (u32, String) {
+        log.connection()
+            .query_row(
+                "SELECT protocol_version, payload FROM events WHERE event_id = ?1",
+                [event_id_to_rowid(event_id).expect("event id should fit SQLite rowid")],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("stored payload")
+    }
+
     fn heartbeat(timestamp: i64) -> DaemonEvent {
         heartbeat_with_degraded_reason(timestamp, "")
     }
@@ -715,7 +702,8 @@ mod tests {
                     "repo_epoch_id": "epoch-1",
                     "source_class": "source"
                 }
-            }),
+            })
+            .into(),
             repo_epoch_id: None,
             occurred_at: Timestamp(1),
             token_usage: None,

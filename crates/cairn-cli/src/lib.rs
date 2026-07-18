@@ -227,7 +227,6 @@ impl SelfTestState {
     }
 }
 
-/// Parse arguments after the binary name, e.g. `["status", "--json"]`.
 pub fn parse_args<I, S>(args: I) -> Result<Command, ParseError>
 where
     I: IntoIterator<Item = S>,
@@ -246,7 +245,6 @@ where
     }
 }
 
-/// Run a parsed command and render it to `writer`.
 pub fn run_to_writer<C, W>(
     command: &Command,
     context: &CommandContext<'_, C>,
@@ -260,7 +258,6 @@ where
     render_report(&report, command.format(), &mut writer).map_err(CliError::Render)
 }
 
-/// Parse, run, and render in one call.
 pub fn run_args_to_writer<C, I, S, W>(
     args: I,
     context: &CommandContext<'_, C>,
@@ -276,7 +273,6 @@ where
     run_to_writer(&command, context, writer)
 }
 
-/// Run a parsed command and return the structured report.
 #[must_use]
 pub fn run_command<C>(command: &Command, context: &CommandContext<'_, C>) -> CommandReport
 where

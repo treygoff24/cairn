@@ -25,12 +25,7 @@ pub(crate) fn working_tree_digest(
     operation_state: OperationState,
     markers: &[&str],
 ) -> ContentHash {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(b"working_tree_digest/v1\0");
-    hasher.update(head_oid.unwrap_or("").as_bytes());
-    hasher.update(b"\0");
-    hasher.update(operation_state_tag(operation_state).as_bytes());
-    hasher.update(b"\0");
+    let mut hasher = vcs_state_hasher(b"working_tree_digest/v1\0", head_oid, operation_state);
     for marker in markers {
         hasher.update(marker.as_bytes());
         hasher.update(b"\0");
@@ -44,12 +39,21 @@ pub(crate) fn repo_epoch_id(
     operation_state: OperationState,
     worktree_id: &WorktreeId,
 ) -> RepoEpochId {
+    let mut hasher = vcs_state_hasher(b"repo_epoch_id/v1\0", head_oid, operation_state);
+    hasher.update(worktree_id.as_str().as_bytes());
+    RepoEpochId::new(hasher.finalize().to_hex().to_string())
+}
+
+fn vcs_state_hasher(
+    domain: &[u8],
+    head_oid: Option<&str>,
+    operation_state: OperationState,
+) -> blake3::Hasher {
     let mut hasher = blake3::Hasher::new();
-    hasher.update(b"repo_epoch_id/v1\0");
+    hasher.update(domain);
     hasher.update(head_oid.unwrap_or("").as_bytes());
     hasher.update(b"\0");
     hasher.update(operation_state_tag(operation_state).as_bytes());
     hasher.update(b"\0");
-    hasher.update(worktree_id.as_str().as_bytes());
-    RepoEpochId::new(hasher.finalize().to_hex().to_string())
+    hasher
 }

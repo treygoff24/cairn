@@ -6,6 +6,8 @@ type Event = {
   pos?: "above" | "below";
 };
 
+type Point = { x: number; y: number };
+
 const LANE_GAP   = 90;     // vertical space between lanes (room for stacked labels)
 const TOP_PAD    = 28;
 const STROKE     = "var(--color-rule-warm)";
@@ -36,7 +38,6 @@ export function TimelineLanes() {
   const axis_y  = beta_y + 56;
   const svg_h   = axis_y + 30;
 
-  // Causality link: β's contract-moving edit → α's deny
   const xFrom = xpos(36);
   const xTo   = xpos(64);
 
@@ -171,7 +172,7 @@ function Lane({ events, y }: { events: Event[]; y: number }) {
   );
 }
 
-function ReadMark({ x, y }: { x: number; y: number }) {
+function ReadMark({ x, y }: Point) {
   return (
     <g>
       <circle cx={x} cy={y} r="5" fill={INK} />
@@ -180,7 +181,7 @@ function ReadMark({ x, y }: { x: number; y: number }) {
   );
 }
 
-function EditMark({ x, y }: { x: number; y: number }) {
+function EditMark({ x, y }: Point) {
   return (
     <g>
       <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke={INK} strokeWidth="1.5" />
@@ -189,7 +190,7 @@ function EditMark({ x, y }: { x: number; y: number }) {
   );
 }
 
-function DenyMark({ x, y }: { x: number; y: number }) {
+function DenyMark({ x, y }: Point) {
   return (
     <g>
       <circle cx={x} cy={y} r="6.5" fill={OXIDE} />
@@ -198,7 +199,7 @@ function DenyMark({ x, y }: { x: number; y: number }) {
   );
 }
 
-function RevalidateMark({ x, y }: { x: number; y: number }) {
+function RevalidateMark({ x, y }: Point) {
   return (
     <g>
       <circle cx={x} cy={y} r="5" fill={EMBER} />

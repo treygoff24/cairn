@@ -21,7 +21,6 @@ use thiserror::Error;
 /// Errors produced by file-version construction and source-class classification.
 #[derive(Error, Debug)]
 pub enum FileError {
-    /// An I/O operation on the file (read, metadata, symlink resolution) failed.
     #[error("I/O error on {path}: {source}")]
     Io {
         path: PathBuf,
@@ -29,13 +28,20 @@ pub enum FileError {
         source: io::Error,
     },
 
-    /// The file's mtime is before the Unix epoch — a system-clock anomaly.
     #[error("mtime before the Unix epoch on {path}")]
     InvalidMtime { path: PathBuf },
 
-    /// A path that must be worktree-relative escaped or named a root.
     #[error("invalid worktree-relative path {path}: {reason}")]
     InvalidRelativePath { path: PathBuf, reason: &'static str },
+}
+
+impl FileError {
+    fn io(path: &Path, source: io::Error) -> Self {
+        Self::Io {
+            path: path.to_path_buf(),
+            source,
+        }
+    }
 }
 
 /// Stream the file at `path` through a `blake3::Hasher` and return the
@@ -47,10 +53,7 @@ pub enum FileError {
 ///
 /// Reads in 64 KiB buffers — large files never load entirely into memory.
 pub fn content_hash_path(path: &Path) -> Result<ContentHash, FileError> {
-    let metadata = std::fs::symlink_metadata(path).map_err(|e| FileError::Io {
-        path: path.to_path_buf(),
-        source: e,
-    })?;
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| FileError::io(path, e))?;
 
     if metadata.file_type().is_symlink() {
         let target = read_symlink_target(path)?;
@@ -61,19 +64,13 @@ pub fn content_hash_path(path: &Path) -> Result<ContentHash, FileError> {
 }
 
 fn hash_regular_file_contents(path: &Path) -> Result<ContentHash, FileError> {
-    let file = std::fs::File::open(path).map_err(|e| FileError::Io {
-        path: path.to_path_buf(),
-        source: e,
-    })?;
+    let file = std::fs::File::open(path).map_err(|e| FileError::io(path, e))?;
 
     let mut hasher = blake3::Hasher::new();
     let mut reader = io::BufReader::with_capacity(65_536, file);
     let mut buf = [0u8; 65_536];
     loop {
-        let n = reader.read(&mut buf).map_err(|e| FileError::Io {
-            path: path.to_path_buf(),
-            source: e,
-        })?;
+        let n = reader.read(&mut buf).map_err(|e| FileError::io(path, e))?;
         if n == 0 {
             break;
         }
@@ -99,10 +96,7 @@ fn content_hash_path_bytes(path: &Path) -> ContentHash {
 }
 
 fn read_symlink_target(path: &Path) -> Result<PathBuf, FileError> {
-    std::fs::read_link(path).map_err(|e| FileError::Io {
-        path: path.to_path_buf(),
-        source: e,
-    })
+    std::fs::read_link(path).map_err(|e| FileError::io(path, e))
 }
 
 #[cfg(unix)]
@@ -205,15 +199,9 @@ fn invalid_relative_path(relative_path: &Path, reason: &'static str) -> FileErro
 }
 
 fn mtime_for(path: &Path) -> Result<Timestamp, FileError> {
-    let metadata = std::fs::symlink_metadata(path).map_err(|e| FileError::Io {
-        path: path.to_path_buf(),
-        source: e,
-    })?;
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| FileError::io(path, e))?;
 
-    let system_time = metadata.modified().map_err(|e| FileError::Io {
-        path: path.to_path_buf(),
-        source: e,
-    })?;
+    let system_time = metadata.modified().map_err(|e| FileError::io(path, e))?;
 
     let nanos = system_time
         .duration_since(std::time::UNIX_EPOCH)
@@ -337,7 +325,6 @@ fn is_test_filename(filename: &str) -> bool {
         }
     }
 
-    // Also match bare `*_test` without extension.
     lower_name.ends_with("_test") || lower_name.starts_with("test_")
 }
 
@@ -403,19 +390,6 @@ fn is_source_extension(filename: &str) -> bool {
 /// full filesystem path for reading. `repo_epoch_id` identifies the VCS epoch
 /// this version was observed during.
 ///
-/// # Fields captured
-///
-/// | Field             | Source                                              |
-/// |-------------------|-----------------------------------------------------|
-/// | `file_id`         | [`file_id_from_path`] of the relative path           |
-/// | `path`            | The relative path (as given)                         |
-/// | `content_hash`    | Streaming BLAKE3 of file content                     |
-/// | `size`            | `metadata.len()`                                     |
-/// | `mtime_observed`  | `metadata.modified()` → nanoseconds since epoch       |
-/// | `executable_bit`  | Unix permission bit (mode & 0o111 != 0)              |
-/// | `symlink_target`  | `Some(target)` if symlink, else `None`               |
-/// | `repo_epoch_id`   | As passed in                                         |
-/// | `source_class`    | [`classify`] of the relative path                    |
 pub fn build_file_version(
     relative_path: &Path,
     worktree_root: &Path,
@@ -425,10 +399,7 @@ pub fn build_file_version(
     let absolute_path = worktree_root.join(relative_path);
 
     let symlink_metadata =
-        std::fs::symlink_metadata(&absolute_path).map_err(|e| FileError::Io {
-            path: absolute_path.clone(),
-            source: e,
-        })?;
+        std::fs::symlink_metadata(&absolute_path).map_err(|e| FileError::io(&absolute_path, e))?;
 
     let is_symlink = symlink_metadata.file_type().is_symlink();
     let symlink_target = if is_symlink {
@@ -437,12 +408,8 @@ pub fn build_file_version(
         None
     };
 
-    // Hash content. For symlinks, hash the symlink's own path bytes (its
-    // "content" is the target path), not the resolved target's content.
     let content_hash = content_hash_path(&absolute_path)?;
 
-    // For file size, use the symlink metadata (len of the symlink entry), same
-    // as what we hashed.
     let size = symlink_metadata.len();
 
     let mtime_observed = mtime_for(&absolute_path)?;

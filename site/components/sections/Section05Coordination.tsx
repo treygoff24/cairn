@@ -1,6 +1,6 @@
-import { Section, Content, TwoColumn, Hairline } from "@/components/layout";
+import { Section, Content, TwoColumn } from "@/components/layout";
 import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
-import { SpecBlock, Marker } from "@/components/blocks";
+import { NextSection, SpecBlock } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 import { TimelineLanes } from "@/components/diagrams/TimelineLanes";
 
@@ -170,13 +170,7 @@ export function Section05Coordination() {
         </PullQuote>
       </Content>
 
-      <Content className="mt-12">
-        <Hairline />
-        <p className="mt-10 flex items-center gap-3 font-mono text-sm text-oxide">
-          <Marker kind="cairn" />
-          <span>§ 06 — what the operator sees when something looks haunted.</span>
-        </p>
-      </Content>
+      <NextSection label="§ 06 — what the operator sees when something looks haunted." />
     </Section>
   );
 }

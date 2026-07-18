@@ -1,6 +1,6 @@
-import { Section, Content, TwoColumn, Hairline } from "@/components/layout";
+import { Section, Content, TwoColumn } from "@/components/layout";
 import { DisplayHeader, Lede, Prose, Mono, SmallCaps } from "@/components/type";
-import { SpecBlock, Marker } from "@/components/blocks";
+import { NextSection, SpecBlock } from "@/components/blocks";
 import { SectionPlate } from "@/components/SectionPlate";
 import { ArchitectureLayers } from "@/components/diagrams/ArchitectureLayers";
 
@@ -185,13 +185,10 @@ can_attach_file_precondition   // ← TOCTOU eligibility lives here`}
         </Prose>
       </Content>
 
-      <Content className="mt-20">
-        <Hairline />
-        <p className="mt-10 flex items-center gap-3 font-mono text-sm text-oxide">
-          <Marker kind="cairn" />
-          <span>§ 05 — where the architecture earns its keep: more than one agent.</span>
-        </p>
-      </Content>
+      <NextSection
+        className="mt-20"
+        label="§ 05 — where the architecture earns its keep: more than one agent."
+      />
     </Section>
   );
 }

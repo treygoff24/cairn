@@ -22,7 +22,6 @@ pub(crate) fn build_fixture(name: &str) -> TempDir {
     let tmp = TempDir::new().expect("create tempdir");
     let root = tmp.path();
     match name {
-        // No `.git` at all — not a git worktree.
         "not-a-repo" => {}
 
         "normal" => {
@@ -53,7 +52,6 @@ pub(crate) fn build_fixture(name: &str) -> TempDir {
             write(root, ".git/HEAD", "ref: refs/heads/main\n");
             write(root, ".git/BISECT_LOG", "bisect start\n");
         }
-        // Detached HEAD with a merge in progress: the in-progress op wins.
         "merge-over-detached-head" => {
             write(root, ".git/HEAD", &line(OID_DETACHED));
             write(root, ".git/MERGE_HEAD", &line(OID_OTHER));
@@ -62,7 +60,6 @@ pub(crate) fn build_fixture(name: &str) -> TempDir {
         "partial" => {
             mkdir(root, ".git");
         }
-        // Symbolic HEAD whose ref is resolved from `packed-refs` (no loose ref).
         "packed-refs-only" => {
             write(root, ".git/HEAD", "ref: refs/heads/main\n");
             write(

@@ -9,9 +9,6 @@ export function Section01Hero() {
       className="relative w-full overflow-hidden"
       style={{ minHeight: "100dvh" }}
     >
-      {/* Right-side hero plate — a field-guide-style illustration carrying
-          the cairn-as-trail-marker metaphor. The image is content, not
-          decoration; alt text describes the metaphor for screen readers. */}
       <div
         className="absolute inset-y-0 right-0 w-[42%] hidden lg:block pointer-events-none"
         style={{ opacity: 0.82 }}
@@ -24,9 +21,7 @@ export function Section01Hero() {
           sizes="42vw"
           className="object-cover object-left mix-blend-multiply"
         />
-        {/* Long left-edge feather — gradient back into paper across ~60% of
-            the image so the leftmost 60% of the image fades into vellum and
-            the text column reads cleanly over the transition zone */}
+        {/* Fade the plate before it reaches the text column. */}
         <div
           aria-hidden
           className="absolute inset-y-0 left-0 w-[62%]"
@@ -72,7 +67,7 @@ export function Section01Hero() {
             <SmallCaps className="tracking-[0.18em]">the design pin</SmallCaps>
           </div>
 
-          {/* Hero h1 — dialed down so it doesn't wrap mid-line at 1280-1440px */}
+          {/* Keep the title on two intentional lines at 1280–1440px. */}
           <h1
             className="font-display font-bold text-ink-deep tracking-tight text-balance"
             style={{

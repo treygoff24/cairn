@@ -1,6 +1,6 @@
 import { Section, Content, TwoColumn, Hairline } from "@/components/layout";
 import { DisplayHeader, Lede, Prose, Mono, PullQuote, SmallCaps } from "@/components/type";
-import { SpecBlock, StatLine, Marker } from "@/components/blocks";
+import { NextSection, SpecBlock, StatLine } from "@/components/blocks";
 
 export function Section07Validation() {
   return (
@@ -159,13 +159,7 @@ VAT = 100 · mean(task_score over benchmark tasks)`}
         </PullQuote>
       </Content>
 
-      <Content className="mt-12">
-        <Hairline />
-        <p className="mt-10 flex items-center gap-3 font-mono text-sm text-oxide">
-          <Marker kind="cairn" />
-          <span>§ 08 — what we want you to push on.</span>
-        </p>
-      </Content>
+      <NextSection label="§ 08 — what we want you to push on." />
     </Section>
   );
 }

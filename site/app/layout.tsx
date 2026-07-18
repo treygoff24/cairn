@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Schibsted_Grotesk, IM_Fell_DW_Pica, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-/* Schibsted Grotesk — workhorse face for display + body */
 const schibsted = Schibsted_Grotesk({
   variable: "--font-schibsted",
   subsets: ["latin"],
@@ -10,7 +9,6 @@ const schibsted = Schibsted_Grotesk({
   weight: ["400", "500", "600", "700", "800", "900"],
 });
 
-/* IM Fell DW Pica — 17th-century letterpress reproduction for archaic accent */
 const imFell = IM_Fell_DW_Pica({
   variable: "--font-im-fell",
   subsets: ["latin"],
@@ -19,7 +17,6 @@ const imFell = IM_Fell_DW_Pica({
   style: ["normal", "italic"],
 });
 
-/* JetBrains Mono — code, data labels, CLI samples */
 const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
   subsets: ["latin"],

@@ -23,22 +23,9 @@ use cairn_daemon_client::{DaemonClient, DaemonClientError};
 use cairn_protocol::{
     AdapterHeartbeat, AdapterKind, AdapterRef, Confidence, DaemonDecision, DaemonEvent,
 };
-use cairn_types::{AdapterCapabilities, SessionId, Timestamp, WorktreeId};
+use cairn_types::{AdapterCapabilities, DaemonGenerationId, SessionId, Timestamp, WorktreeId};
 
-/// First deterministic generation assigned by the simulated registry.
-pub const FIRST_DAEMON_GENERATION: DaemonGeneration = DaemonGeneration(1);
-
-/// Monotonic identity of one daemon process generation for a worktree.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DaemonGeneration(u64);
-
-impl DaemonGeneration {
-    /// Returns the numeric generation.
-    #[must_use]
-    pub const fn get(self) -> u64 {
-        self.0
-    }
-}
+pub const FIRST_DAEMON_GENERATION: DaemonGenerationId = DaemonGenerationId(1);
 
 /// A simulated adapter/client that attaches to the daemon fixture.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,13 +54,11 @@ impl SimulatedClientSpec {
         })
     }
 
-    /// Stable registration name for this simulated client.
     #[must_use]
     pub fn client_name(&self) -> &str {
         &self.client_name
     }
 
-    /// Capability bitset this client registers on attach.
     #[must_use]
     pub const fn capabilities(&self) -> AdapterCapabilities {
         self.capabilities
@@ -124,19 +109,16 @@ impl Phase1DaemonFixture {
         Self::with_client_specs(worktree_root, specs)
     }
 
-    /// Worktree all simulated clients attach to.
     #[must_use]
     pub fn worktree_root(&self) -> &Path {
         &self.worktree_root
     }
 
-    /// Client specs in deterministic launch order.
     #[must_use]
     pub fn client_specs(&self) -> &[SimulatedClientSpec] {
         &self.client_specs
     }
 
-    /// Simulated clients in deterministic launch order.
     #[must_use]
     pub fn simulated_clients(&self) -> Vec<SimulatedClient> {
         self.client_specs
@@ -223,8 +205,6 @@ impl Phase1DaemonFixture {
     }
 }
 
-/// Builds deterministic client specs for callers that want to customize the
-/// fixture before launch.
 pub fn deterministic_client_specs(
     client_count: usize,
     capabilities: AdapterCapabilities,
@@ -288,11 +268,11 @@ impl SimulatedClient {
         })
     }
 
-    fn connected_generation(&self) -> Result<DaemonGeneration, HarnessError> {
+    fn connected_generation(&self) -> Result<DaemonGenerationId, HarnessError> {
         self.registry.generation_for(&self.worktree_root)
     }
 
-    fn heartbeat_event(&self, sent_at: Timestamp, generation: DaemonGeneration) -> DaemonEvent {
+    fn heartbeat_event(&self, sent_at: Timestamp, generation: DaemonGenerationId) -> DaemonEvent {
         DaemonEvent::AdapterHeartbeat(AdapterHeartbeat {
             agent_session_id: Some(SessionId::new(self.spec.client_name.clone())),
             worktree_id: WorktreeId::new(worktree_id_value(&self.worktree_root)),
@@ -302,26 +282,23 @@ impl SimulatedClient {
             },
             capabilities: self.spec.capabilities,
             sent_at,
-            daemon_generation_id: Some(generation.get().to_string()),
+            daemon_generation_id: Some(generation.as_u64().to_string()),
             token_usage: None,
             queued_event_count: 0,
             degraded: None,
         })
     }
 
-    /// Worktree this simulated client attaches to.
     #[must_use]
     pub fn worktree_root(&self) -> &Path {
         &self.worktree_root
     }
 
-    /// Stable registration name for this simulated client.
     #[must_use]
     pub fn client_name(&self) -> &str {
         self.spec.client_name()
     }
 
-    /// Capability bitset this simulated client registers.
     #[must_use]
     pub const fn capabilities(&self) -> AdapterCapabilities {
         self.spec.capabilities()
@@ -348,24 +325,21 @@ impl DaemonClient for SimulatedClient {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClientLaunch {
     client_name: String,
-    generation: DaemonGeneration,
+    generation: DaemonGenerationId,
     heartbeat_decision: DaemonDecision,
 }
 
 impl ClientLaunch {
-    /// Client that launched.
     #[must_use]
     pub fn client_name(&self) -> &str {
         &self.client_name
     }
 
-    /// Daemon generation observed by this client.
     #[must_use]
-    pub const fn generation(&self) -> DaemonGeneration {
+    pub const fn generation(&self) -> DaemonGenerationId {
         self.generation
     }
 
-    /// Decision returned for the deterministic adapter heartbeat event.
     #[must_use]
     pub fn heartbeat_decision(&self) -> &DaemonDecision {
         &self.heartbeat_decision
@@ -376,24 +350,21 @@ impl ClientLaunch {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapabilityRegistration {
     client_name: String,
-    generation: DaemonGeneration,
+    generation: DaemonGenerationId,
     capabilities: AdapterCapabilities,
 }
 
 impl CapabilityRegistration {
-    /// Registered client name.
     #[must_use]
     pub fn client_name(&self) -> &str {
         &self.client_name
     }
 
-    /// Daemon generation active when registration occurred.
     #[must_use]
-    pub const fn generation(&self) -> DaemonGeneration {
+    pub const fn generation(&self) -> DaemonGenerationId {
         self.generation
     }
 
-    /// Registered adapter capability bitset.
     #[must_use]
     pub const fn capabilities(&self) -> AdapterCapabilities {
         self.capabilities
@@ -410,38 +381,33 @@ pub struct LaunchReport {
 }
 
 impl LaunchReport {
-    /// Worktree every simulated client attached to.
     #[must_use]
     pub fn worktree_root(&self) -> &Path {
         &self.worktree_root
     }
 
-    /// Per-client launch records in deterministic launch order.
     #[must_use]
     pub fn client_launches(&self) -> &[ClientLaunch] {
         &self.client_launches
     }
 
-    /// Capability registrations in deterministic registration order.
     #[must_use]
     pub fn capability_registrations(&self) -> &[CapabilityRegistration] {
         &self.capability_registrations
     }
 
-    /// Events recorded by the simulated daemon.
     #[must_use]
     pub fn events(&self) -> &[DaemonEvent] {
         &self.events
     }
 
-    /// Count of distinct daemon generations observed by launches or registrations.
     #[must_use]
     pub fn daemon_generation_count(&self) -> usize {
         self.observed_generations().len()
     }
 
     /// Returns the only observed generation, or an error if the fixture split.
-    pub fn single_generation(&self) -> Result<DaemonGeneration, HarnessError> {
+    pub fn single_generation(&self) -> Result<DaemonGenerationId, HarnessError> {
         let generations = self.observed_generations();
 
         match generations.len() {
@@ -456,7 +422,7 @@ impl LaunchReport {
         }
     }
 
-    fn observed_generations(&self) -> BTreeSet<DaemonGeneration> {
+    fn observed_generations(&self) -> BTreeSet<DaemonGenerationId> {
         let mut generations = self
             .client_launches
             .iter()
@@ -474,28 +440,16 @@ impl LaunchReport {
 /// Errors surfaced by the deterministic harness.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HarnessError {
-    /// A client spec used an empty or whitespace-only name.
     EmptyClientName,
-    /// Two configured client specs have the same registration name.
     DuplicateClientName(String),
-    /// One client attempted to register different capabilities under an existing
-    /// client name.
     ConflictingCapabilities(String),
-    /// No daemon was connected or launched for the requested worktree.
     MissingDaemon(PathBuf),
-    /// The shared in-memory registry was poisoned.
     RegistryPoisoned,
-    /// The daemon-client trait returned a degraded error.
     ClientDegraded(String),
-    /// No launch or registration observed a daemon generation.
     NoDaemonGeneration,
-    /// More than one generation was observed by launches or registrations.
-    MultipleDaemonGenerations(Vec<DaemonGeneration>),
-    /// Client count exceeded the deterministic timestamp range.
+    MultipleDaemonGenerations(Vec<DaemonGenerationId>),
     TooManyClients(usize),
-    /// A concurrent simulated client thread panicked.
     ClientThreadPanicked,
-    /// A custom event targeted a different worktree than the fixture owns.
     MismatchedWorktreeId { expected: String, found: String },
 }
 
@@ -562,7 +516,7 @@ impl SharedDaemonRegistry {
         &self,
         worktree_root: &Path,
         spec: &SimulatedClientSpec,
-    ) -> Result<DaemonGeneration, HarnessError> {
+    ) -> Result<DaemonGenerationId, HarnessError> {
         let mut registry = self.lock()?;
         registry.connect(worktree_root, spec)
     }
@@ -572,7 +526,7 @@ impl SharedDaemonRegistry {
         registry.record_event(worktree_root, event)
     }
 
-    fn generation_for(&self, worktree_root: &Path) -> Result<DaemonGeneration, HarnessError> {
+    fn generation_for(&self, worktree_root: &Path) -> Result<DaemonGenerationId, HarnessError> {
         let registry = self.lock()?;
         registry.generation_for(worktree_root)
     }
@@ -598,7 +552,7 @@ struct SimulatedDaemonRegistry {
 impl Default for SimulatedDaemonRegistry {
     fn default() -> Self {
         Self {
-            next_generation: FIRST_DAEMON_GENERATION.get(),
+            next_generation: FIRST_DAEMON_GENERATION.as_u64(),
             daemons: BTreeMap::new(),
         }
     }
@@ -609,11 +563,11 @@ impl SimulatedDaemonRegistry {
         &mut self,
         worktree_root: &Path,
         spec: &SimulatedClientSpec,
-    ) -> Result<DaemonGeneration, HarnessError> {
+    ) -> Result<DaemonGenerationId, HarnessError> {
         match self.daemons.entry(worktree_root.to_path_buf()) {
             Entry::Occupied(entry) => entry.into_mut().record_registration(spec),
             Entry::Vacant(entry) => {
-                let generation = DaemonGeneration(self.next_generation);
+                let generation = DaemonGenerationId(self.next_generation);
                 self.next_generation += 1;
                 entry
                     .insert(SimulatedDaemonState::new(generation))
@@ -636,7 +590,7 @@ impl SimulatedDaemonRegistry {
         Ok(())
     }
 
-    fn generation_for(&self, worktree_root: &Path) -> Result<DaemonGeneration, HarnessError> {
+    fn generation_for(&self, worktree_root: &Path) -> Result<DaemonGenerationId, HarnessError> {
         self.daemons
             .get(worktree_root)
             .map(SimulatedDaemonState::generation)
@@ -653,13 +607,13 @@ impl SimulatedDaemonRegistry {
 
 #[derive(Debug, Clone)]
 struct SimulatedDaemonState {
-    generation: DaemonGeneration,
+    generation: DaemonGenerationId,
     capability_registrations: BTreeMap<String, CapabilityRegistration>,
     events: Vec<DaemonEvent>,
 }
 
 impl SimulatedDaemonState {
-    fn new(generation: DaemonGeneration) -> Self {
+    fn new(generation: DaemonGenerationId) -> Self {
         Self {
             generation,
             capability_registrations: BTreeMap::new(),
@@ -667,14 +621,14 @@ impl SimulatedDaemonState {
         }
     }
 
-    const fn generation(&self) -> DaemonGeneration {
+    const fn generation(&self) -> DaemonGenerationId {
         self.generation
     }
 
     fn record_registration(
         &mut self,
         spec: &SimulatedClientSpec,
-    ) -> Result<DaemonGeneration, HarnessError> {
+    ) -> Result<DaemonGenerationId, HarnessError> {
         match self.capability_registrations.get(spec.client_name()) {
             Some(existing) if existing.capabilities() == spec.capabilities() => Ok(self.generation),
             Some(existing) => Err(HarnessError::ConflictingCapabilities(

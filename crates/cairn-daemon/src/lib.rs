@@ -24,7 +24,7 @@ use cairn_daemon_client::{
 };
 use cairn_identity::{IdentityError, WorktreeIdentity};
 use cairn_protocol::{Confidence, DaemonDecision};
-use cairn_types::{ConfigHash, DaemonEventKind, ProtocolVersion, WorktreeId};
+use cairn_types::{ConfigHash, DaemonEventKind, DaemonGenerationId, ProtocolVersion, WorktreeId};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -44,22 +44,6 @@ const ATTACH_POLL_INTERVAL: Duration = Duration::from_millis(5);
 static NEXT_TOKEN_COUNTER: AtomicU64 = AtomicU64::new(1);
 static PROCESS_WRITER_LOCKS: OnceLock<Mutex<BTreeSet<PathBuf>>> = OnceLock::new();
 
-/// Monotonic daemon generation for one [`DaemonScope`].
-///
-/// A new writer generation is minted every time a process obtains the exclusive
-/// writer lease, including restarts after a graceful shutdown and recovery after
-/// an abandoned/stale lease.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct DaemonGenerationId(pub u64);
-
-impl DaemonGenerationId {
-    /// Returns the raw generation number.
-    #[must_use]
-    pub fn as_u64(self) -> u64 {
-        self.0
-    }
-}
-
 /// Non-secret token proving which daemon generation owns the writer lease.
 ///
 /// The token is a fencing value, not an authentication credential. It lets a
@@ -74,7 +58,6 @@ impl LeaseToken {
         Self(format!("{}-{now_unix_ns}-{counter}", process::id()))
     }
 
-    /// Borrows the token string.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -109,7 +92,6 @@ impl DaemonScope {
         }
     }
 
-    /// Converts a computed worktree identity into a daemon scope.
     #[must_use]
     pub fn from_identity(identity: &WorktreeIdentity) -> Self {
         let mut scope = Self::new(
@@ -126,25 +108,21 @@ impl DaemonScope {
         scope
     }
 
-    /// Canonical root path covered by this daemon.
     #[must_use]
     pub fn canonical_root(&self) -> &Path {
         &self.canonical_root
     }
 
-    /// Worktree ID partitioning the daemon and event log.
     #[must_use]
     pub fn worktree_id(&self) -> &WorktreeId {
         &self.worktree_id
     }
 
-    /// Effective config hash included in the daemon identity.
     #[must_use]
     pub fn config_hash(&self) -> &ConfigHash {
         &self.config_hash
     }
 
-    /// Wire protocol version this daemon speaks.
     #[must_use]
     pub fn protocol_version(&self) -> ProtocolVersion {
         self.protocol_version
@@ -199,31 +177,26 @@ impl DaemonPaths {
         }
     }
 
-    /// Directory containing all runtime artifacts for this daemon scope.
     #[must_use]
     pub fn runtime_dir(&self) -> &Path {
         &self.runtime_dir
     }
 
-    /// OS-level exclusive lock file. The lock is advisory and held by the writer.
     #[must_use]
     pub fn lock_file(&self) -> &Path {
         &self.lock_file
     }
 
-    /// Durable SQLite lease database path.
     #[must_use]
     pub fn lease_db(&self) -> &Path {
         &self.lease_db
     }
 
-    /// Heartbeat record written by the active daemon generation.
     #[must_use]
     pub fn heartbeat_file(&self) -> &Path {
         &self.heartbeat_file
     }
 
-    /// Socket path where clients attach to the active daemon generation.
     #[must_use]
     pub fn socket_file(&self) -> &Path {
         &self.socket_file
@@ -284,13 +257,11 @@ impl DaemonLifecycle {
         self
     }
 
-    /// Daemon scope this lifecycle coordinates.
     #[must_use]
     pub fn scope(&self) -> &DaemonScope {
         &self.scope
     }
 
-    /// Runtime paths this lifecycle uses.
     #[must_use]
     pub fn paths(&self) -> &DaemonPaths {
         &self.paths
@@ -441,26 +412,21 @@ fn status_is_attachable(status: &DaemonStatus) -> bool {
 /// Result of [`DaemonLifecycle::start_or_attach`].
 #[derive(Debug)]
 pub enum DaemonStartup {
-    /// This process owns the writer lease and should run the daemon loop.
     Started(RunningDaemon),
-    /// Another generation owns the writer lease; attach to it instead.
     Attached(DaemonAttachment),
 }
 
 impl DaemonStartup {
-    /// Whether this caller became the daemon writer.
     #[must_use]
     pub fn is_started(&self) -> bool {
         matches!(self, Self::Started(_))
     }
 
-    /// Whether this caller attached to an already-running daemon.
     #[must_use]
     pub fn is_attached(&self) -> bool {
         matches!(self, Self::Attached(_))
     }
 
-    /// Current status for the daemon generation this caller should use.
     #[must_use]
     pub fn status(&self) -> DaemonStatus {
         match self {
@@ -487,37 +453,31 @@ pub struct RunningDaemon {
 }
 
 impl RunningDaemon {
-    /// Daemon scope this writer owns.
     #[must_use]
     pub fn scope(&self) -> &DaemonScope {
         &self.scope
     }
 
-    /// Runtime paths this writer uses.
     #[must_use]
     pub fn paths(&self) -> &DaemonPaths {
         &self.paths
     }
 
-    /// Generation ID for this writer.
     #[must_use]
     pub fn generation_id(&self) -> DaemonGenerationId {
         self.generation_id
     }
 
-    /// Lease token for this writer generation.
     #[must_use]
     pub fn lease_token(&self) -> &LeaseToken {
         &self.lease_token
     }
 
-    /// Why this daemon generation started.
     #[must_use]
     pub fn start_reason(&self) -> DaemonStartReason {
         self.start_reason
     }
 
-    /// Current in-memory status for this writer generation.
     #[must_use]
     pub fn status(&self) -> DaemonStatus {
         DaemonStatus {
@@ -631,11 +591,8 @@ impl Drop for RunningDaemon {
 /// Result of serving one daemon-client request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DaemonServerOutcome {
-    /// A status request was served.
     Status,
-    /// An event request was observed and allowed.
     Event { event_kind: DaemonEventKind },
-    /// The request was answered fail-open because it did not match this daemon.
     Degraded,
 }
 
@@ -648,19 +605,16 @@ pub struct DaemonSocketServer {
 }
 
 impl DaemonSocketServer {
-    /// Runtime paths exposed by the underlying daemon.
     #[must_use]
     pub fn paths(&self) -> &DaemonPaths {
         self.daemon.paths()
     }
 
-    /// Generation served by this socket.
     #[must_use]
     pub fn generation_id(&self) -> DaemonGenerationId {
         self.daemon.generation_id()
     }
 
-    /// Current status for the owned daemon generation.
     #[must_use]
     pub fn status(&self) -> DaemonStatus {
         self.daemon.status()
@@ -680,32 +634,21 @@ impl DaemonSocketServer {
 /// Attachment to an existing daemon generation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DaemonAttachment {
-    /// Status for the daemon generation to attach to.
     pub status: DaemonStatus,
 }
 
 /// Status visible to CLI, clients, and harness fixtures.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DaemonStatus {
-    /// Active or most recently recorded generation.
     pub generation_id: DaemonGenerationId,
-    /// Writer lease token for the recorded generation.
     pub lease_token: LeaseToken,
-    /// OS process ID recorded by the writer.
     pub writer_pid: u32,
-    /// Lease lifecycle state.
     pub state: DaemonLeaseState,
-    /// Heartbeat-derived health.
     pub health: DaemonHealth,
-    /// Why this generation started.
     pub start_reason: DaemonStartReason,
-    /// Generation start timestamp, if loaded from the lease record.
     pub started_at_unix_ns: Option<i64>,
-    /// Last heartbeat timestamp, if present.
     pub last_heartbeat_unix_ns: Option<i64>,
-    /// Graceful shutdown timestamp, if present.
     pub shutdown_at_unix_ns: Option<i64>,
-    /// Paths for attach/doctor output.
     pub paths: DaemonPaths,
 }
 
@@ -751,54 +694,42 @@ pub enum DaemonHealth {
 /// Errors produced by daemon lifecycle coordination.
 #[derive(Debug, Error)]
 pub enum DaemonLifecycleError {
-    /// Config hashing failed while building a project lifecycle.
     #[error("config error: {0}")]
     Config(#[from] ConfigError),
 
-    /// Worktree identity computation failed.
     #[error("identity error: {0}")]
     Identity(#[from] IdentityError),
 
-    /// Runtime directory creation failed.
     #[error("failed to create daemon runtime directory `{path}`: {source}")]
     CreateRuntimeDir { path: PathBuf, source: io::Error },
 
-    /// Lock file open failed.
     #[error("failed to open daemon lock file `{path}`: {source}")]
     OpenLock { path: PathBuf, source: io::Error },
 
-    /// Writer lock acquisition failed for reasons other than contention.
     #[error("failed to acquire daemon writer lock `{path}`: {source}")]
     AcquireLock { path: PathBuf, source: io::Error },
 
-    /// Writer lock release failed.
     #[error("failed to release daemon writer lock `{path}`: {source}")]
     ReleaseLock { path: PathBuf, source: io::Error },
 
-    /// Unix socket setup failed.
     #[error("failed to bind daemon socket `{path}`: {source}")]
     BindSocket { path: PathBuf, source: io::Error },
 
-    /// A daemon client connection could not be accepted.
     #[error("failed to accept daemon socket connection `{path}`: {source}")]
     AcceptSocket { path: PathBuf, source: io::Error },
 
-    /// Daemon socket I/O failed.
     #[error("daemon socket I/O at `{path}` failed: {source}")]
     SocketIo { path: PathBuf, source: io::Error },
 
-    /// The current platform cannot serve the Unix-socket protocol.
     #[error("Unix-domain daemon sockets are unsupported on this platform")]
     UnsupportedSocketPlatform,
 
-    /// Another process held the lock but did not publish a lease record in time.
     #[error("daemon lock `{lock_path}` stayed held without a lease record after {waited:?}")]
     LeaseHeldWithoutRecord {
         lock_path: PathBuf,
         waited: Duration,
     },
 
-    /// Another process held the lock but only published an unhealthy lifecycle status.
     #[error(
         "daemon lock `{lock_path}` stayed held with unhealthy status {health:?} after {waited:?}"
     )]
@@ -808,33 +739,27 @@ pub enum DaemonLifecycleError {
         waited: Duration,
     },
 
-    /// In-process lock table was poisoned by a panic.
     #[error("daemon in-process writer lock table is poisoned")]
     ProcessLockTablePoisoned,
 
-    /// Lease record was required but missing.
     #[error("daemon lease record `{path}` is missing")]
     MissingLeaseRecord { path: PathBuf },
 
-    /// File I/O failed.
     #[error("daemon file I/O at `{path}` failed: {source}")]
     FileIo { path: PathBuf, source: io::Error },
 
-    /// JSON serialization/deserialization failed.
     #[error("daemon JSON at `{path}` failed: {source}")]
     Json {
         path: PathBuf,
         source: serde_json::Error,
     },
 
-    /// SQLite lease database failed.
     #[error("daemon lease DB `{path}` failed: {source}")]
     Sqlite {
         path: PathBuf,
         source: rusqlite::Error,
     },
 
-    /// This writer no longer owns the active lease record.
     #[error(
         "daemon lease lost: expected generation {expected_generation:?} token {expected_token:?}; found generation {found_generation:?} token {found_token:?} state {found_state:?}"
     )]
@@ -846,7 +771,6 @@ pub enum DaemonLifecycleError {
         found_state: DaemonLeaseState,
     },
 
-    /// System clock could not be represented as Unix nanoseconds.
     #[error("system clock is before the Unix epoch")]
     ClockBeforeUnixEpoch,
 }

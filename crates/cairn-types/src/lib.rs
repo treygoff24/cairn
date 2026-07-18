@@ -13,8 +13,6 @@ use std::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
-/// Defines a string-newtype ID with a uniform constructor and accessor.
-///
 /// The private inner representation lets IDs evolve without changing consumer
 /// APIs.
 macro_rules! id_type {
@@ -24,12 +22,10 @@ macro_rules! id_type {
         pub struct $name(String);
 
         impl $name {
-            /// Wraps a raw identifier value.
             pub fn new(value: impl Into<String>) -> Self {
                 Self(value.into())
             }
 
-            /// Borrows the raw identifier value.
             pub fn as_str(&self) -> &str {
                 &self.0
             }
@@ -63,7 +59,17 @@ id_type! {
 pub struct EventId(pub u64);
 
 impl EventId {
-    /// Returns the raw numeric event id.
+    #[must_use]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+}
+
+/// Monotonic identity of one daemon process generation for a worktree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct DaemonGenerationId(pub u64);
+
+impl DaemonGenerationId {
     #[must_use]
     pub const fn as_u64(self) -> u64 {
         self.0
@@ -86,7 +92,6 @@ impl ContentHash {
         Self(hex.into())
     }
 
-    /// Borrows the lowercase-hex digest.
     pub fn as_hex(&self) -> &str {
         &self.0
     }
@@ -118,7 +123,6 @@ impl ConfigHash {
         Self(hex.into())
     }
 
-    /// Borrows the lowercase-hex digest.
     pub fn as_hex(&self) -> &str {
         &self.0
     }
@@ -157,7 +161,6 @@ pub struct ProtocolVersion(pub u32);
 pub struct Timestamp(pub i64);
 
 impl Timestamp {
-    /// Returns the current wall-clock timestamp as nanoseconds since the Unix epoch.
     #[must_use]
     pub fn now() -> Self {
         let nanos = SystemTime::now()
@@ -311,11 +314,9 @@ pub enum DaemonEventKind {
 /// Error type for `cairn-types` validation failures.
 #[derive(Debug, Error)]
 pub enum TypeError {
-    /// Input is not 64 lowercase-hex characters (a 32-byte BLAKE3 digest).
     #[error("invalid content hash: {0}")]
     InvalidContentHash(String),
 
-    /// Input is not 64 lowercase-hex characters (a 32-byte BLAKE3 digest).
     #[error("invalid config hash: {0}")]
     InvalidConfigHash(String),
 }
