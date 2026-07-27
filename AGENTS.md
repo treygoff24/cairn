@@ -28,6 +28,24 @@ The spec's §14 ("The one non-obvious design choice") restates this in full when
 6. **`docs/Cairn Implementation Plan — Patch Round 2.md`** — the current vertical-slice sequencing and vexp-superset amendment.
 7. **`docs/history/`** — decision-rationale archive (Pro language-decision conversation, spec review round 2). Written before the rename — references "Code Briefcase" / "Briefcase" throughout.
 
+## Build and gate
+
+`./scripts/gate.sh` is the canonical gate. It covers both of the repo's verification surfaces, fails fast on the first red check, and can be invoked from any directory because it cds to the repo root itself.
+
+Cairn has two surfaces and no root `package.json`, so `npm run <script>` at the repo root can only fail with "Missing script" — every npm script lives in `site/package.json`.
+
+- **Rust workspace** (repo root): `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`, `cargo machete crates`.
+- **Next.js site** (`site/`): `pnpm --dir site lint`, `pnpm --dir site exec tsc --noEmit`.
+
+Use `pnpm`, not `npm`, for the site — `site/pnpm-lock.yaml` is the lockfile. From the repo root, prefer `pnpm --dir site <script>` over cd-ing, so the working directory stops being something you have to track.
+
+Scope the unused-dependency scan to workspace members: `cargo machete crates`. Unscoped, `cargo machete` also walks `fixtures/`, where `files/source-class/Cargo.toml` is sample data for source-class classification rather than a crate, and `--with-metadata` then reports a spurious "believes it's in a workspace" error. Do not fix that by adding the path to `workspace.exclude` or giving the fixture its own `[workspace]` table: both make `cargo metadata` succeed there, which generates a real `Cargo.lock` over the fixture's stub and leaves a `target/` artifact behind. Scoping the scan is the fix that has no side effects.
+
+## Working in site/
+
+- Dev server: `pnpm --dir site dev`. Production preview: `pnpm --dir site build && pnpm --dir site start`. Both bind port 3000. Check the port first — `lsof -nP -iTCP:3000 -sTCP:LISTEN` names the current listener — so an `EADDRINUSE` failure reads as "someone else is already serving" rather than a broken build.
+- `site/node_modules` contains only what `site/package.json` declares. Analysis tools such as `madge` are not declared, so `site/node_modules/.bin/madge` does not exist even when an `npx --no-install madge` probe succeeds against a globally cached copy. Resolve such a tool once and run that exact command (`npx madge --circular site/app`); never probe one way and execute another.
+
 ## How we build
 
 Orchestrator (Codex) plus a parallel worker swarm plus mandatory per-wave review loops. The loop:
@@ -83,10 +101,10 @@ Codex native subagents via the `Agent` tool — relevant types: `general-purpose
 
 ## CPU discipline (critical)
 
-Workers **MUST NOT** run heavy gates. N parallel workers each running `cargo test` or `cargo build --release` concurrently has melted machines in real use. The orchestrator runs the gate **once** at the end of a wave/phase.
+Workers **MUST NOT** run heavy gates. N parallel workers each running `cargo test` or `cargo build --release` concurrently has melted machines in real use. The orchestrator runs `./scripts/gate.sh` **once** at the end of a wave/phase.
 
 - Allowed inside a worker: `cargo check`, `cargo clippy --no-deps`, `cargo fmt --check`
-- Forbidden inside a worker: `cargo test`, `cargo build --release`, large benchmark runs, E2E tests
+- Forbidden inside a worker: `./scripts/gate.sh`, `cargo test`, `cargo build --release`, `pnpm --dir site build`, large benchmark runs, E2E tests
 
 State this discipline explicitly in every worker brief. Workers should report "I ran `cargo check` and `cargo clippy`, gate run is the orchestrator's job."
 

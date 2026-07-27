@@ -1,5 +1,8 @@
 # Rust build outputs
 /target/
+# The source-class fixture is a real crate that gets compiled during tests, so it
+# grows its own target/ that the root-anchored rule above does not cover.
+fixtures/**/target/
 **/*.rs.bk
 
 # Editor / OS
