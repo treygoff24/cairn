@@ -1,136 +1,93 @@
-# Cairn — Codex Project Instructions
+# Cairn — Agent Instructions
 
-This file overrides and extends the global `AGENTS.md` for work inside this repository.
+Canonical, harness-neutral instructions for this repo. `CLAUDE.md` imports this file; Codex reads it directly.
 
 ## What this repo is
 
-Cairn is a greenfield Rust rewrite of Code Briefcase (V1, Python). The V1 product was named "Code Briefcase" and lives at `~/Code/code-briefcase`; it is retained as behavior spec plus acceptance test corpus (878 tests). The V2 rewrite was renamed to **Cairn** mid-planning — same product trajectory, cleaner name. This repo is the V2/Cairn build.
-
-The implementation plan has landed and the Rust workspace is under active development. Use `docs/STATE.md` for the current wave and gate status.
+Cairn is a greenfield Rust rewrite of Code Briefcase (V1, Python, at `~/Code/code-briefcase`). V1 is retained as behavior spec and acceptance-test corpus (878 tests) and is **never modified from this repo** — different project, different working tree. The V2 rewrite was renamed to Cairn mid-planning.
 
 ## The design pin
 
 > *"Cairn is not primarily a repository index. It is a versioned belief-management system for AI agents operating on code."*
 
-A code graph tells you what's currently true about the repo. The harder, more valuable question: what does *this particular agent session* currently believe, and has that belief expired?
+A code graph tells you what is currently true about the repo. The harder, more valuable question: what does *this particular agent session* currently believe, and has that belief expired?
 
-Everything follows from that framing. **Graph facts are inputs to belief management; they must not become the primary API surface.** If you find yourself building "let's expose the graph through MCP" before "let's expose the ledger through MCP," you've inverted the design.
-
-The spec's §14 ("The one non-obvious design choice") restates this in full when you forget.
+**Graph facts are inputs to belief management; they must not become the primary API surface.** Building "expose the graph through MCP" before "expose the ledger through MCP" is the inverted design. Spec §14 restates this in full.
 
 ## What to read first
 
-1. **`CONTEXT.md`** — strategic context, decisions locked in, working-relationship cues, things-not-to-relitigate.
-2. **`docs/STATE.md`** — current phase, what's in flight, what's pending. The living state of the build.
-3. **`docs/Cairn Final Specification.md`** — binding architecture and feature spec. Two appendices: A (build-order phasing) and B (schema reference) are load-bearing.
-4. **`docs/Cairn Implementation Plan.md`** — Pro's full 30-wave implementation plan, with Patch Round 1 applied.
-5. **`docs/Cairn Implementation Plan — Patch Round 1.md`** and **`docs/Cairn Implementation Plan — Patch Round 1 Decisions.md`** — the patch round and Pro's adjudication, kept as decision log.
-6. **`docs/Cairn Implementation Plan — Patch Round 2.md`** — the current vertical-slice sequencing and vexp-superset amendment.
-7. **`docs/history/`** — decision-rationale archive (Pro language-decision conversation, spec review round 2). Written before the rename — references "Code Briefcase" / "Briefcase" throughout.
+1. **`docs/STATE.md`** — current wave, what's in flight, what's next. Canonical live status; read it before acting.
+2. **`CONTEXT.md`** — why decisions were made, and what not to re-litigate.
+3. **`docs/Cairn Final Specification.md`** — binding architecture and feature spec. Appendices A (build-order phasing) and B (schema reference) are load-bearing.
+4. **`docs/Cairn Implementation Plan.md`** — the 30-wave plan with Patch Round 1 applied. `docs/Cairn Implementation Plan — Patch Round 2.md` carries the current vertical-slice sequencing and the vexp-superset amendment; the two Patch Round 1 files are the decision log.
+5. **`docs/history/`** — pre-rename decision archive; says "Code Briefcase" throughout.
 
 ## Build and gate
 
-`./scripts/gate.sh` is the canonical gate. It covers both of the repo's verification surfaces, fails fast on the first red check, and can be invoked from any directory because it cds to the repo root itself.
+`./scripts/gate.sh` is the canonical gate. It covers both verification surfaces, fails fast on the first red check, and cds to the repo root itself so it runs from anywhere. The orchestrator runs it once at the close of a wave or phase; workers never run it.
 
-Cairn has two surfaces and no root `package.json`, so `npm run <script>` at the repo root can only fail with "Missing script" — every npm script lives in `site/package.json`.
+There is no root `package.json` — every npm script lives in `site/package.json`, so `npm run <script>` at the repo root can only fail with "Missing script". Use `pnpm --dir site <script>` from the repo root rather than cd-ing; `site/pnpm-lock.yaml` is the lockfile.
 
-- **Rust workspace** (repo root): `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`, `cargo machete crates`.
-- **Next.js site** (`site/`): `pnpm --dir site lint`, `pnpm --dir site exec tsc --noEmit`.
-
-Use `pnpm`, not `npm`, for the site — `site/pnpm-lock.yaml` is the lockfile. From the repo root, prefer `pnpm --dir site <script>` over cd-ing, so the working directory stops being something you have to track.
-
-Scope the unused-dependency scan to workspace members: `cargo machete crates`. Unscoped, `cargo machete` also walks `fixtures/`, where `files/source-class/Cargo.toml` is sample data for source-class classification rather than a crate, and `--with-metadata` then reports a spurious "believes it's in a workspace" error. Do not fix that by adding the path to `workspace.exclude` or giving the fixture its own `[workspace]` table: both make `cargo metadata` succeed there, which generates a real `Cargo.lock` over the fixture's stub and leaves a `target/` artifact behind. Scoping the scan is the fix that has no side effects.
+Worker light checks and the Phase 1 advance-refusal criteria live in `docs/dev/gates.md`.
 
 ## Working in site/
 
-- Dev server: `pnpm --dir site dev`. Production preview: `pnpm --dir site build && pnpm --dir site start`. Both bind port 3000. Check the port first — `lsof -nP -iTCP:3000 -sTCP:LISTEN` names the current listener — so an `EADDRINUSE` failure reads as "someone else is already serving" rather than a broken build.
-- `site/node_modules` contains only what `site/package.json` declares. Analysis tools such as `madge` are not declared, so `site/node_modules/.bin/madge` does not exist even when an `npx --no-install madge` probe succeeds against a globally cached copy. Resolve such a tool once and run that exact command (`npx madge --circular site/app`); never probe one way and execute another.
+- Dev server: `pnpm --dir site dev`. Production preview: `pnpm --dir site build && pnpm --dir site start`. Both bind port 3000 — check it first with `lsof -nP -iTCP:3000 -sTCP:LISTEN` so an `EADDRINUSE` reads as "someone else is already serving" rather than a broken build.
+- `site/node_modules` contains only what `site/package.json` declares. Analysis tools such as `madge` are not declared, so `site/node_modules/.bin/madge` does not exist even when an `npx --no-install madge` probe succeeds against a globally cached copy. Resolve such a tool once and run that exact command; never probe one way and execute another.
+- `site/DESIGN_CONTEXT.md` is the standing brief for the explainer site — paste it verbatim into any site subagent, and update it there rather than in scattered briefs.
 
 ## How we build
 
-Orchestrator (Codex) plus a parallel worker swarm plus mandatory per-wave review loops. The loop:
+Orchestrator plus a parallel worker swarm plus mandatory per-wave review loops:
 
-1. Orchestrator reads the current phase from the implementation plan.
-2. Orchestrator fans out Wave N — multiple `Agent` (Codex native subagent) and/or `delegate` (off-Anthropic harness) calls in a single message.
-3. Orchestrator collects results, inspects diffs, runs light gate (`cargo check`, `cargo clippy --no-deps`).
-4. Orchestrator dispatches an independent reviewer — different model than the implementer. Reviewer produces a fix list. Orchestrator dispatches fixes. Loop until clean.
-5. Repeat for Wave N+1.
-6. At scheduled phase boundaries (per the plan's cadence): orchestrator runs bug hunt (`debugging-systematic` + `diagnose` skills) and/or `desloppify-deep` (8-subagent cleanup pass).
-7. At phase end: orchestrator runs the full gate **once**, writes a phase summary, advances.
+1. Read the current wave from `docs/STATE.md` and the matching wave header in the implementation plan.
+2. Freeze the wave's contracts, then fan out workers in a single message.
+3. Collect results, inspect diffs, run light checks (`cargo check`, `cargo clippy --no-deps`).
+4. Dispatch an independent reviewer — a **different model than the implementer**. Fix loop until clean.
+5. At phase boundaries: bug hunt and a `desloppify-deep` cleanup pass, per the plan's cadence.
+6. At phase end: run `./scripts/gate.sh` once, write the phase summary into `docs/STATE.md`, advance.
 
-The orchestrator does not do most implementation directly. The orchestrator's job is to plan, dispatch, review, integrate, decide, escalate.
+The orchestrator plans, dispatches, reviews, integrates, decides, escalates. It does not do most implementation directly.
 
-## Always-on skills for implementation tasks
+**Under Codex, fan out with `delegate`, not native subagents** — `collaboration.spawn_agent` fails here with "no thread with id" (five separate occurrences logged in `.papercuts.jsonl`, 2026-07-18). Under Claude Code the `Agent` tool works; useful types are `general-purpose`, `Explore`, `Plan`, `plan-reviewer`, `refactor-pilot`, `worker`, and the `desloppify-*` specialists.
 
-Brief every implementer worker with:
+## Skills
 
-- **`clean-code`** — small functions, intention-revealing names, no slop comments, no defensive code without a real boundary
-- **`rust-engineer`** — idiomatic Rust, memory safety, zero-cost abstractions
+Brief every implementer with **`clean-code`** and **`rust-engineer`**. Non-negotiable on every implementation brief. Read `~/.agents/skill-library/<name>/SKILL.md` directly — skill *search* has been slow and unreliable in this repo and has repeatedly aborted compound commands.
 
-These are non-negotiable on every implementation brief.
-
-## Phase-boundary and orchestrator skills
-
-- **`desloppify-deep`** — 8-subagent parallel cleanup at scheduled phase boundaries per the implementation plan's cadence
-- **`debugging-systematic`** + **`diagnose`** — bug hunts at scheduled checkpoints
-- **`finishing-a-development-branch`** — phase-end integration discipline
-- **`checkpoint`** — force a progress checkpoint at phase end
-- **`parallel-subagent-discipline`** — read before fanning out workers (CPU discipline)
-- **`codex-prompting`** — when crafting Codex worker briefs (Codex will drive a large share of execution)
+Orchestrator-side: `desloppify-deep` at phase boundaries, `debugging-systematic` for bug hunts, `checkpoint` at phase end, `codex-prompting` when writing Codex briefs.
 
 ## Worker fleet
 
 Off-Anthropic workers via `delegate` (cost-free against the Anthropic subscription):
 
-- `delegate cursor work` — broad implementation, mechanical work, repo-wide edits
-- `delegate codex work` — Codex execution. Strong implementation lane when you want Codex-native review or work.
-- `delegate droid "deepseek v4 pro" work` — Pareto-frontier cost-per-task default
-- `delegate droid "deepseek v4 flash" work` — fast lane for parallel coverage
-- `delegate droid glm work` — quality implementation, proactive tests
-- `delegate droid grok work` — typed refactors, schema work
-- `delegate droid gemini work` — diverse coverage
+| lane | use |
+|---|---|
+| `delegate codex work` | primary implementation lane |
+| `delegate cursor work` | broad mechanical work, repo-wide edits |
+| `delegate droid "deepseek v4 pro" work` | cost-per-task default |
+| `delegate droid "deepseek v4 flash" work` | fast lane for parallel coverage |
+| `delegate droid glm work` | quality implementation, proactive tests |
+| `delegate droid grok work` | typed refactors, schema work |
+| `delegate droid gemini work` | diverse coverage |
 
-For reviews, use a **different model than the implementer**. Common pairings:
-- Implementer = `cursor work` → Reviewer = `delegate codex safe` or `delegate droid "deepseek v4 pro" safe`
-- Implementer = `codex work` → Reviewer = `delegate cursor safe` or `delegate droid glm safe`
-- Implementer = `droid deepseek` → Reviewer = `delegate codex safe`
-
-Full delegate model strengths in `~/.agents/skill-library/delegate-agent/SKILL.md`.
-
-Codex native subagents via the `Agent` tool — relevant types: `general-purpose`, `Explore`, `Plan`, `plan-reviewer`, `refactor-pilot`, `code-simplifier`, `desloppify-deep` (and its 8 specialists), `worker`.
+Reviews run in `safe` mode under a different model than the implementer. Check `delegate models` before trusting an alias — lanes here have died on stale aliases, missing Cursor auth, and an exhausted Kimi quota, always after the snapshot was already built. Full strengths table: `~/.agents/skill-library/delegate-agent/SKILL.md`.
 
 ## CPU discipline (critical)
 
-Workers **MUST NOT** run heavy gates. N parallel workers each running `cargo test` or `cargo build --release` concurrently has melted machines in real use. The orchestrator runs `./scripts/gate.sh` **once** at the end of a wave/phase.
+N parallel workers each running `cargo test` or `cargo build --release` concurrently has melted machines in real use.
 
-- Allowed inside a worker: `cargo check`, `cargo clippy --no-deps`, `cargo fmt --check`
-- Forbidden inside a worker: `./scripts/gate.sh`, `cargo test`, `cargo build --release`, `pnpm --dir site build`, large benchmark runs, E2E tests
+- **Allowed in a worker:** `cargo check`, `cargo clippy --no-deps`, `cargo fmt --check`
+- **Forbidden in a worker:** `./scripts/gate.sh`, `cargo test`, `cargo build --release`, `pnpm --dir site build`, benchmarks, E2E tests
 
-State this discipline explicitly in every worker brief. Workers should report "I ran `cargo check` and `cargo clippy`, gate run is the orchestrator's job."
+State this explicitly in every worker brief. Workers report "I ran `cargo check` and `cargo clippy`; the gate run is the orchestrator's job."
 
-## Git discipline
+## Git
 
-- Never `git add -A` or `git add .` — stage files by exact name.
-- Never force-push, never `--no-verify`, never `--amend` to "fix" a failed pre-commit hook (the commit didn't happen; create a new one).
-- The orchestrator owns commits and stashes during a wave. Workers do not commit unless explicitly authorized in their brief.
-- Remote: `github.com/treygoff24/cairn`.
-
-## V1 reference
-
-The V1 Python repo at `~/Code/code-briefcase` is the behavior spec.
-
-- 878 tests passing, ruff + mypy clean, latest substantive work was items 1–8 hook ergonomics fixes plus watch-diagnostics stabilization.
-- The V1 tests are the **acceptance test corpus** for V2. They represent behavior V2 must match in spirit, not implementation. Port to Rust integration tests per the implementation plan's V1-corpus-inheritance strategy.
-- **Do not modify V1 from this repo.** Different project, different working tree.
-
-## Current phase
-
-Phase 1 is in progress. Waves 1.1 and 1.2 are complete; Wave 1.3 (Phase 1 integration and acceptance) is next. Read `docs/STATE.md` before acting because it is the canonical live status.
-
-When resuming work in a new session, read STATE.md first to find the current wave, then jump to the matching wave header in the implementation plan.
+The orchestrator owns commits and stashes during a wave; workers do not commit unless their brief authorizes it. Remote is `github.com/treygoff24/cairn`, direct-to-main. The global rules still apply — stage by exact name, never force-push, never `--no-verify`, never `--amend` to paper over a failed hook.
 
 ## Out of scope for V1 (do NOT add)
 
-- Privacy / prompt-injection defense machinery. Single-user local-only product, threat surface is small enough. The credential-redaction one-liner in the event log is hygiene, not security; that's the only concession.
-- Worktree-per-agent federation as the coordination model. V1 coherence domain is one daemon per worktree; federation is P2.
-- Backwards compatibility with V1 Python implementation. Greenfield. Don't introduce shims.
+- **Privacy / prompt-injection defense machinery.** Single-user local-only product; the threat surface is small enough. The credential-redaction one-liner in the event log is hygiene, not security — that's the only concession.
+- **Worktree-per-agent federation as the coordination model.** The V1 coherence domain is one daemon per worktree; federation is P2.
+- **Backwards compatibility with the V1 Python implementation.** Greenfield. No shims.
